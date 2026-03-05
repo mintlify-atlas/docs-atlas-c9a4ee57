@@ -1,0 +1,144 @@
+{
+  "projectType": "saas",
+  "projectName": "McDis-RCON",
+  "projectDescription": "Stream your Minecraft server console to Discord for remote management through an interactive Discord bot interface.",
+  "theme": "aspen",
+  "primaryColor": "#94cb04",
+  "lightColor": "#545454",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "installation"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/overview",
+              "features/process-control",
+              "features/console-relay",
+              "features/file-manager",
+              "features/backup-system",
+              "features/discord-panel"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/overview",
+              "configuration/discord-setup",
+              "configuration/process-setup",
+              "configuration/advanced"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Guides",
+        "groups": [
+          {
+            "group": "Panel Management",
+            "pages": [
+              "guides/panel-commands",
+              "guides/file-manager",
+              "guides/backup-management",
+              "guides/process-manager",
+              "guides/tools"
+            ]
+          },
+          {
+            "group": "Extending McDis-RCON",
+            "pages": [
+              "guides/plugins-overview",
+              "guides/creating-plugins",
+              "guides/addons-overview",
+              "guides/creating-addons",
+              "guides/predefined-commands"
+            ]
+          },
+          {
+            "group": "Advanced Usage",
+            "pages": [
+              "guides/multiple-servers",
+              "guides/flask-integration",
+              "guides/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "CLI Commands",
+            "pages": [
+              "api/cli/init",
+              "api/cli/run",
+              "api/cli/console-commands"
+            ]
+          },
+          {
+            "group": "Core Classes",
+            "pages": [
+              "api/classes/mcdisclient",
+              "api/classes/process",
+              "api/classes/server",
+              "api/classes/network"
+            ]
+          },
+          {
+            "group": "Plugin & Addon API",
+            "pages": [
+              "api/plugins/mdplugin",
+              "api/plugins/events",
+              "api/addons/mdaddon",
+              "api/addons/events"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/utils/files",
+              "api/utils/discord",
+              "api/utils/minecraft"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Process Control (start, stop, restart, kill servers)",
+    "Console Relay (view and interact with server console in Discord)",
+    "Backup System (automated backup creation and management)",
+    "File Explorer (manage server files through Discord)",
+    "Plugin Support (extend functionality for active processes)",
+    "Addon System (extend bot functionality without active processes)",
+    "Predefined Commands (custom console commands)",
+    "Advanced Error Reporting (automatic error detection and Discord notifications)",
+    "Multiple Server Support (manage multiple servers simultaneously)",
+    "Flask Integration (download files larger than 5MB)"
+  ],
+  "publicApiSurface": [
+    "mcdis init",
+    "mcdis run",
+    "McDisClient",
+    "Process",
+    "Server",
+    "Network",
+    "mdplugin class",
+    "mdaddon class",
+    "listener_events method",
+    "listener_on_message method",
+    "Panel commands (start, stop, restart, kill, mdreload, adreload)",
+    "Discord panel buttons (Processes, Files, Tools, Guide, Restart)"
+  ]
+}
