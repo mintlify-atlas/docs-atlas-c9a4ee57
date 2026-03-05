@@ -1,0 +1,494 @@
+---
+title: Discord Panel
+description: Navigate and use the McDis-RCON Discord control panel interface
+---
+
+The Discord Panel is the central hub for managing your Minecraft servers through McDis-RCON. It provides an interactive interface with buttons, dropdowns, and real-time status information.
+
+<img src="https://i.imgur.com/lE4GRIV.png" alt="McDis-RCON Panel" />
+
+## Panel Components
+
+The panel consists of several elements:
+
+1. **Custom Banner** (optional) - Personalized image
+2. **Status Embed** - Server information and statistics
+3. **Control Buttons** - Quick access to features
+4. **Console Threads** - Real-time server console output
+5. **Utility Threads** - Error reports and Flask logs
+
+## Setting Up the Panel
+
+<Steps>
+  <Step title="Create Panel Channel">
+    Create a dedicated text channel in your Discord server for the McDis panel.
+    
+    Recommended channel name: `mcdis-panel` or `server-control`
+  </Step>
+  
+  <Step title="Get Channel ID">
+    Enable Developer Mode in Discord:
+    - User Settings → Advanced → Developer Mode: ON
+    
+    Right-click the channel → Copy ID
+  </Step>
+  
+  <Step title="Configure Panel ID">
+    Add the channel ID to `md_config.yml`:
+    
+    ```yaml
+    Panel ID: 1234567890123456789
+    ```
+  </Step>
+  
+  <Step title="Start McDis-RCON">
+    Run `mcdis run` and the panel will be created automatically
+  </Step>
+</Steps>
+
+<Note>
+  The panel channel should be clean (empty) when first starting McDis-RCON. If it contains messages, McDis will purge them and create a fresh panel.
+</Note>
+
+## Custom Banner
+
+Personalize your panel with a custom banner image:
+
+<Steps>
+  <Step title="Create Banner Image">
+    Design an image with recommended size: **515 × 131 pixels**
+    
+    Supported format: PNG
+  </Step>
+  
+  <Step title="Save as banner.png">
+    Save the file as `banner.png` in your McDis root directory:
+    
+    ```
+    McDis/
+    ├── md_config.yml
+    ├── banner.png  ← Place here
+    └── ...
+    ```
+  </Step>
+  
+  <Step title="Restart McDis-RCON">
+    The banner will be loaded automatically on next start
+  </Step>
+</Steps>
+
+<img src="https://i.imgur.com/SgTT90z.png" alt="Panel with Custom Banner" />
+
+<Tip>
+  The banner updates every 15 seconds, so you can change it without restarting McDis. Just replace the `banner.png` file.
+</Tip>
+
+## Main Panel Buttons
+
+The panel provides five main action buttons:
+
+<CardGroup cols={2}>
+  <Card title="Processes" icon="server">
+    Expand process control interface with start/stop/restart/kill buttons
+  </Card>
+  <Card title="Files" icon="folder">
+    Open the file manager to browse and manage server files
+  </Card>
+  <Card title="Tools" icon="wrench">
+    Access additional tools: Process Manager, Uploader, Flask server
+  </Card>
+  <Card title="Guide" icon="book">
+    Display the McDis-RCON guide (not yet implemented)
+  </Card>
+  <Card title="Restart" icon="rotate-right">
+    Restart the entire McDis-RCON application
+  </Card>
+</CardGroup>
+
+### Processes Button
+
+Click **Processes** to expand the process control interface:
+
+<img src="https://i.imgur.com/ZYtK5nO.png" alt="Process Control Panel" />
+
+**Controls:**
+- **⬅️** - Return to main panel
+- **Dropdown** - Select which server to control
+- **▶️ Start** - Start the selected server
+- **⏹️ Stop** - Stop the selected server gracefully
+- **🔄 Restart** - Restart the selected server
+- **⚠️ Kill** - Force kill the selected server
+
+<Note>
+  The dropdown cycles through all configured processes (both servers and networks). Click it multiple times to select different servers.
+</Note>
+
+### Files Button
+
+Click **Files** to open the file manager:
+
+<img src="https://i.imgur.com/PcJ5afz.png" alt="File Manager" />
+
+See [File Manager](/features/file-manager) for detailed documentation.
+
+### Tools Button
+
+Click **Tools** to access additional utilities:
+
+<img src="https://i.imgur.com/S3jAKbE.png" alt="Tools Menu" />
+
+**Available tools:**
+- **Processes** - View and manage all Java processes
+- **Uploader** - Enable file upload mode
+- **Flask** - Configure Flask download server
+
+#### Process Manager
+
+<img src="https://i.imgur.com/72K5lBN.png" alt="Process Manager" />
+
+View all Java processes running in the McDis directory:
+- **🔄** - Refresh process list
+- **📌** - Enter specific path to scan
+- **Dropdown** - Select and force kill processes
+
+<Warning>
+  Force killing processes through this tool can cause data corruption. Use only when processes are unresponsive.
+</Warning>
+
+#### Uploader
+
+<img src="https://i.imgur.com/hL2tnDv.png" alt="Uploader Tool" />
+
+Enable file upload mode:
+- **🔄** - Reload interface
+- **📌** - Set upload destination path
+- **Run/Close** - Toggle uploader on/off
+- **Do Not Overwrite/Overwrite** - Toggle overwrite mode
+
+When active, all files sent to the panel channel are automatically uploaded to the configured path.
+
+#### Flask Server
+
+<img src="https://i.imgur.com/G1K8gP2.png" alt="Flask Server Controls" />
+
+Manage the Flask download server:
+- **🔄** - Reload interface
+- **Run/Close** - Start/stop Flask server
+- **Single Use/Multi-Use** - Download link usage policy
+- **Temporary/Persistent** - Download link expiration policy
+
+Required for downloading files larger than 5MB.
+
+### Restart Button
+
+Click **Restart** to restart the entire McDis-RCON application:
+
+<Steps>
+  <Step title="Confirmation">
+    A confirmation message appears asking if you want to restart
+  </Step>
+  
+  <Step title="Process Shutdown">
+    McDis attempts to gracefully stop all running servers using their `stop_cmd`
+  </Step>
+  
+  <Step title="Force Kill Timeout">
+    If servers don't stop within 60 seconds, they're force killed
+  </Step>
+  
+  <Step title="Restart">
+    McDis-RCON restarts automatically
+  </Step>
+</Steps>
+
+<Warning>
+  Restarting McDis-RCON will temporarily disconnect all servers. Use this for applying configuration changes or updates.
+</Warning>
+
+## Panel Commands
+
+You can also control McDis via text commands in the panel channel:
+
+### Server Control Commands
+
+```bash
+!!start <server>      # Start a specific server
+!!stop <server>       # Stop a specific server
+!!restart <server>    # Restart a specific server
+!!kill <server>       # Force kill a specific server
+```
+
+**Example:**
+```
+!!start survival
+!!restart creative
+!!stop velocity
+```
+
+### Batch Commands
+
+```bash
+!!start-all           # Start all servers
+!!stop-all            # Stop all servers
+!!restart-all         # Restart all servers
+!!kill-all            # Force kill all servers
+```
+
+### Plugin Management
+
+```bash
+!!mdreload <server>   # Reload plugins for specific server
+!!mdreload-all        # Reload plugins for all servers
+!!adreload            # Reload global addons
+```
+
+<Info>
+  Commands are case-insensitive: `!!start SMP` and `!!start smp` work the same.
+</Info>
+
+## Console Threads
+
+Each configured process automatically gets a console thread:
+
+```
+🧵 Console survival_server
+🧵 Console creative_server
+🧵 Console velocity_proxy
+🧵 Error Reports
+🧵 Console Flask
+```
+
+### Console Threads Features
+
+<CardGroup cols={2}>
+  <Card title="Real-Time Output" icon="terminal">
+    View live server console output as it happens
+  </Card>
+  <Card title="Command Execution" icon="keyboard">
+    Send commands directly to the server
+  </Card>
+  <Card title="Process Control" icon="sliders">
+    Use `start`, `stop`, `restart`, `kill` commands
+  </Card>
+  <Card title="Plugin Management" icon="puzzle-piece">
+    Use `mdreload` to reload server plugins
+  </Card>
+</CardGroup>
+
+See [Console Relay](/features/console-relay) for detailed information.
+
+### Error Reports Thread
+
+All errors and exceptions are reported here:
+
+<img src="https://i.imgur.com/ysDyQdU.png" alt="Error Reports" />
+
+Error reports include:
+- Error title and context
+- Full stack trace
+- Timestamp
+- Link from console threads
+
+### Console Flask Thread
+
+When Flask server is enabled, download activity is logged here:
+
+```md
+[12:34:56] User @Admin requested download: large_backup.zip
+[12:35:12] Download link used: large_backup.zip (192.168.1.100)
+[12:40:00] Download link expired: large_backup.zip
+```
+
+## Panel Status Information
+
+The panel embed displays real-time status:
+
+### Server Status
+
+For each configured process:
+- **Name**
+- **State** (Running/Stopped)
+- **RAM Usage** (if running)
+- **Disk Usage**
+
+### System Information
+
+- **Total Processes**
+- **Running Processes**
+- **McDis Version**
+- **Uptime**
+
+<Note>
+  The panel updates every 15 seconds to show current status.
+</Note>
+
+## Panel Permissions
+
+Recommended Discord bot permissions:
+
+<CardGroup cols={2}>
+  <Card title="Required Permissions" icon="check">
+    - Read Messages
+    - Send Messages
+    - Embed Links
+    - Attach Files
+    - Read Message History
+    - Manage Messages
+    - Manage Threads
+    - Create Public Threads
+  </Card>
+  <Card title="Recommended" icon="star">
+    - Administrator (simplest)
+    
+    Or specific permissions listed in Required
+  </Card>
+</CardGroup>
+
+<Warning>
+  If the bot lacks permissions, the panel may not function correctly. Granting Administrator permissions ensures full functionality.
+</Warning>
+
+## Customization
+
+### Language
+
+Change panel language in `md_config.yml`:
+
+```yaml
+Language: en  # English
+# or
+Language: es  # Spanish
+```
+
+Supported languages:
+- `en` - English
+- `es` - Spanish (Español)
+
+### Panel Location
+
+The panel must be in a dedicated channel, but you can:
+
+- Use any channel name
+- Place it in any category
+- Set custom channel permissions
+- Use channel topic for documentation link
+
+<Tip>
+  Set the channel topic to a link to your server documentation or rules for easy access.
+</Tip>
+
+## Mobile Experience
+
+The panel is designed to work well on Discord mobile:
+
+- Buttons are large and touch-friendly
+- Dropdowns work on mobile Discord
+- Console threads are accessible
+- Commands can be typed on mobile keyboard
+
+<Info>
+  For the best mobile experience, use the button interface instead of typing commands.
+</Info>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Panel not appearing">
+    **Possible causes:**
+    - Incorrect Panel ID
+    - Bot lacks permissions
+    - Bot not in server
+    - Channel deleted
+    
+    **Solutions:**
+    - Verify Panel ID in `md_config.yml`
+    - Grant Administrator permissions to bot
+    - Ensure bot is invited and has access to channel
+    - Recreate channel and update Panel ID
+  </Accordion>
+  
+  <Accordion title="Buttons don't work">
+    **Possible causes:**
+    - Bot lacks permissions
+    - Discord API issues
+    - Button interaction timeout
+    
+    **Solutions:**
+    - Grant Manage Messages permission
+    - Check Discord API status
+    - Try clicking again (interactions timeout after 15 minutes)
+  </Accordion>
+  
+  <Accordion title="Panel keeps getting duplicated">
+    **Cause:**
+    Multiple McDis instances running with same Panel ID
+    
+    **Solution:**
+    Ensure only one McDis instance is running:
+    ```bash
+    ps aux | grep mcdis
+    kill <pid>
+    ```
+  </Accordion>
+  
+  <Accordion title="Console threads disappeared">
+    **Possible causes:**
+    - Threads archived automatically
+    - Threads deleted manually
+    - Discord thread limit reached
+    
+    **Solutions:**
+    - Check archived threads in channel
+    - Restart McDis to recreate threads
+    - Clean up old unused threads
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Dedicated Channel" icon="hashtag">
+    Use a dedicated channel only for the McDis panel, not mixed with other messages
+  </Card>
+  <Card title="Permission Management" icon="lock">
+    Restrict channel access to trusted administrators only
+  </Card>
+  <Card title="Monitor Error Reports" icon="bug">
+    Regularly check the Error Reports thread for issues
+  </Card>
+  <Card title="Archive Old Threads" icon="box-archive">
+    Periodically archive old console threads to keep the channel organized
+  </Card>
+</CardGroup>
+
+## Advanced: Panel Customization via Code
+
+For advanced users, you can customize the panel embed by modifying:
+
+```python:mcdis_rcon/gui/Panel.py
+class PanelEmbed(discord.Embed):
+    def __init__(self, client: McDisClient):
+        # Customize embed appearance here
+        pass
+```
+
+<Warning>
+  Modifying source code requires reinstalling McDis-RCON after changes and may break updates.
+</Warning>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Process Control" icon="power-off" href="/features/process-control">
+    Use panel buttons to control servers
+  </Card>
+  <Card title="Console Relay" icon="terminal" href="/features/console-relay">
+    Interact with console threads
+  </Card>
+  <Card title="File Manager" icon="folder" href="/features/file-manager">
+    Access files through the panel
+  </Card>
+  <Card title="Discord Setup" icon="discord" href="/configuration/discord-setup">
+    Configure bot token and permissions
+  </Card>
+</CardGroup>

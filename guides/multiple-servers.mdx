@@ -1,0 +1,574 @@
+---
+title: Managing Multiple Servers
+description: Configure and manage multiple Minecraft servers and networks simultaneously
+icon: server
+---
+
+McDis-RCON excels at managing multiple Minecraft servers and proxy networks simultaneously. This guide covers configuration, organization, and best practices for multi-server setups.
+
+## Configuration Overview
+
+Multiple servers are defined in `md_config.yml` under the `Processes` section:
+
+```yaml md_config.yml
+Bot Token: "your_discord_bot_token"
+Panel ID: 1234567890
+Language: "en"
+Backups: 3
+
+Flask:
+  Allow: true
+  IP: "203.0.113.42"
+  Port: 5000
+
+Processes:
+  Servers:
+    SMP:
+      start_cmd: "java -Xmx4G -jar server.jar nogui"
+      stop_cmd: "stop"
+      blacklist:
+        - "[debug]"
+    
+    CMP:
+      start_cmd: "java -Xmx2G -jar server.jar nogui"
+      stop_cmd: "stop"
+      blacklist: []
+    
+    MMP:
+      start_cmd: "java -Xmx6G -jar server.jar nogui"
+      stop_cmd: "stop"
+      blacklist: []
+  
+  Networks:
+    Velocity:
+      start_cmd: "java -Xmx512M -jar velocity.jar"
+      stop_cmd: "end"
+      blacklist: []
+```
+
+<Info>
+You can define up to any number of servers and networks. Each process gets its own folder, console thread, and management interface.
+</Info>
+
+## Process Types
+
+McDis-RCON supports two process types:
+
+### Servers
+
+Typical Minecraft server instances:
+- **Paper, Spigot, Fabric, Forge servers**
+- Independent worlds and configurations
+- Each gets a separate folder: `McDis/SMP/`, `McDis/CMP/`, etc.
+
+### Networks
+
+Proxy servers that connect multiple Minecraft servers:
+- **Velocity, BungeeCord, Waterfall**
+- Route players between backend servers
+- Gets folder: `McDis/Velocity/`, `McDis/BungeeCord/`, etc.
+
+<Note>
+The distinction between "Servers" and "Networks" is organizational. Both are treated as processes with the same capabilities.
+</Note>
+
+## File Structure for Multiple Servers
+
+When managing multiple servers, your McDis folder structure looks like:
+
+```
+McDis/
+├── .mdbackups/          ← Backups for all processes
+│   ├── SMP/
+│   │   ├── SMP 1.zip
+│   │   ├── SMP 2.zip
+│   │   └── SMP 3.zip
+│   ├── CMP/
+│   └── Velocity/
+├── .mdaddons/           ← Global addons
+│   └── status_tracker.py
+├── SMP/                 ← First server
+│   ├── .mdplugins/
+│   ├── .mdcommands/
+│   ├── server.jar
+│   ├── world/
+│   └── plugins/
+├── CMP/                 ← Second server
+│   ├── .mdplugins/
+│   ├── .mdcommands/
+│   ├── server.jar
+│   ├── world/
+│   └── plugins/
+├── MMP/                 ← Third server
+│   ├── .mdplugins/
+│   ├── .mdcommands/
+│   ├── server.jar
+│   └── world/
+└── Velocity/            ← Network proxy
+    ├── .mdplugins/
+    ├── .mdcommands/
+    ├── velocity.jar
+    └── plugins/
+```
+
+## Panel Layout
+
+When McDis-RCON loads, it creates console threads for each process:
+
+![Multi-Server Panel](https://i.imgur.com/lE4GRIV.png)
+
+**Panel threads:**
+- Main panel message (controls)
+- Console SMP
+- Console CMP
+- Console MMP
+- Console Velocity
+- Error Reports
+- Console Flask
+
+<Tip>
+Use Discord's thread sidebar to quickly navigate between server consoles.
+</Tip>
+
+## Managing Individual Servers
+
+### Starting Specific Servers
+
+```bash
+# Start one server
+!!start SMP
+
+# Start multiple servers
+!!start SMP
+!!start CMP
+!!start Velocity
+
+# Start all servers
+!!start-all
+```
+
+### Stopping Specific Servers
+
+```bash
+# Stop one server
+!!stop CMP
+
+# Stop all servers
+!!stop-all
+```
+
+### Restarting Servers
+
+```bash
+# Restart individual server
+!!restart SMP
+
+# Restart all
+!!restart-all
+```
+
+## Common Multi-Server Patterns
+
+### Pattern 1: SMP + Creative + Minigames
+
+```yaml md_config.yml
+Processes:
+  Servers:
+    SMP:           # Survival server
+      start_cmd: "java -Xmx6G -jar paper.jar nogui"
+      stop_cmd: "stop"
+      blacklist: []
+    
+    Creative:      # Creative build server
+      start_cmd: "java -Xmx2G -jar paper.jar nogui"
+      stop_cmd: "stop"
+      blacklist: []
+    
+    Minigames:     # Minigame server
+      start_cmd: "java -Xmx4G -jar paper.jar nogui"
+      stop_cmd: "stop"
+      blacklist: []
+  
+  Networks:
+    Proxy:         # Velocity proxy
+      start_cmd: "java -Xmx512M -jar velocity.jar"
+      stop_cmd: "end"
+      blacklist: []
+```
+
+**Startup sequence:**
+```bash
+!!start SMP
+!!start Creative
+!!start Minigames
+!!start Proxy  # Start proxy last
+```
+
+### Pattern 2: Modded + Vanilla
+
+```yaml md_config.yml
+Processes:
+  Servers:
+    Vanilla:
+      start_cmd: "java -Xmx4G -jar server.jar nogui"
+      stop_cmd: "stop"
+      blacklist: []
+    
+    Modded:
+      start_cmd: "java -Xmx8G @user_jvm_args.txt @libraries/net/minecraftforge/forge/1.20.1-47.2.0/unix_args.txt nogui"
+      stop_cmd: "stop"
+      blacklist:
+        - "[FML]"
+        - "[Forge]"
+  
+  Networks: {}
+```
+
+### Pattern 3: Testing + Production
+
+```yaml md_config.yml
+Processes:
+  Servers:
+    Production:
+      start_cmd: "java -Xmx6G -jar paper.jar nogui"
+      stop_cmd: "stop"
+      blacklist: []
+    
+    Testing:
+      start_cmd: "java -Xmx2G -jar paper.jar nogui"
+      stop_cmd: "stop"
+      blacklist: []
+  
+  Networks: {}
+```
+
+**Workflow:**
+1. Test plugins on Testing server
+2. If stable, copy to Production
+3. Restart Production
+
+## Managing Server Dependencies
+
+### Network + Backend Servers
+
+When using a proxy network, start backend servers first:
+
+<Steps>
+  <Step title="Start backend servers">
+    ```bash
+    !!start SMP
+    !!start CMP
+    !!start MMP
+    ```
+  </Step>
+  
+  <Step title="Wait for servers to finish loading">
+    Monitor console threads until "Done!" message appears
+  </Step>
+  
+  <Step title="Start proxy network">
+    ```bash
+    !!start Velocity
+    ```
+  </Step>
+  
+  <Step title="Players can connect">
+    Players connect to the proxy, which routes them to backend servers
+  </Step>
+</Steps>
+
+**Shutdown sequence (reverse order):**
+```bash
+!!stop Velocity  # Stop proxy first
+!!stop-all       # Then stop all backend servers
+```
+
+## Resource Allocation
+
+### Memory Distribution Example
+
+For a server with 16GB RAM:
+
+```yaml
+Processes:
+  Servers:
+    SMP:        # Main server - most resources
+      start_cmd: "java -Xmx8G -jar server.jar nogui"
+      
+    Creative:   # Light usage
+      start_cmd: "java -Xmx2G -jar server.jar nogui"
+      
+    Events:     # Moderate usage
+      start_cmd: "java -Xmx4G -jar server.jar nogui"
+  
+  Networks:
+    Velocity:   # Proxy - minimal resources
+      start_cmd: "java -Xmx512M -jar velocity.jar"
+```
+
+**Total allocation:**
+- SMP: 8GB
+- Creative: 2GB
+- Events: 4GB
+- Velocity: 512MB
+- **Total: 14.5GB** (leaving ~1.5GB for OS)
+
+<Warning>
+Don't allocate more memory than available RAM. Leave headroom for the operating system.
+</Warning>
+
+## Port Configuration
+
+Each server needs unique ports:
+
+```properties server.properties (SMP)
+server-port=25565
+query.port=25565
+rcon.port=25575
+```
+
+```properties server.properties (CMP)
+server-port=25566
+query.port=25566
+rcon.port=25576
+```
+
+```properties server.properties (MMP)
+server-port=25567
+query.port=25567
+rcon.port=25577
+```
+
+```toml velocity.toml
+bind = "0.0.0.0:25565"  # Players connect here
+
+[servers]
+smp = "127.0.0.1:25565"
+cmp = "127.0.0.1:25566"
+mmp = "127.0.0.1:25567"
+```
+
+<Tip>
+With a proxy, only the proxy port (25565) needs to be open externally. Backend servers can use localhost.
+</Tip>
+
+## Cross-Server Plugins
+
+Use plugins to coordinate between servers:
+
+### Example: Global Server Status Addon
+
+```python server_status.py
+from mcdis_rcon.classes import McDisClient
+import discord
+import asyncio
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    async def on_message(self, message: discord.Message):
+        if message.content == "!servers":
+            status = "**Server Status:**\n"
+            
+            for process in self.client.processes:
+                emoji = "🟢" if process.is_running() else "🔴"
+                status += f"{emoji} {process.name}\n"
+            
+            await message.channel.send(status)
+```
+
+Place in `McDis/.mdaddons/server_status.py` and reload with `!!adreload`.
+
+## Backup Strategies
+
+For multiple servers:
+
+### Individual Backups
+
+Create backups per server:
+
+1. Navigate to `.mdbackups/SMP/`
+2. Create backup
+3. Repeat for other servers
+
+### Backup Rotation
+
+With `Backups: 3`, each server maintains 3 backups:
+
+```
+.mdbackups/
+├── SMP/
+│   ├── SMP 1.zip  (newest)
+│   ├── SMP 2.zip
+│   └── SMP 3.zip  (oldest)
+├── CMP/
+│   ├── CMP 1.zip
+│   ├── CMP 2.zip
+│   └── CMP 3.zip
+└── MMP/
+    ├── MMP 1.zip
+    ├── MMP 2.zip
+    └── MMP 3.zip
+```
+
+### Scheduled Backup Workflow
+
+```bash
+# Weekly backup routine
+!!stop SMP
+# Create backup via File Manager
+!!start SMP
+
+!!stop CMP
+# Create backup via File Manager
+!!start CMP
+
+# Repeat for other servers
+```
+
+<Tip>
+Stagger backups throughout the week to minimize downtime.
+</Tip>
+
+## Troubleshooting Multi-Server Setups
+
+<Accordion title="Servers won't start simultaneously">
+  **Problem:** Multiple servers fail to start together
+  
+  **Possible causes:**
+  - Insufficient RAM
+  - Port conflicts
+  - Disk I/O limitations
+  
+  **Solutions:**
+  - Reduce memory allocation per server
+  - Verify unique ports in server.properties
+  - Start servers sequentially, not all at once
+  - Use SSD for better I/O performance
+</Accordion>
+
+<Accordion title="Proxy can't connect to backend servers">
+  **Problem:** Velocity/BungeeCord can't reach backend servers
+  
+  **Checklist:**
+  - Backend servers started before proxy?
+  - Correct ports in proxy config?
+  - `online-mode=false` in backend server.properties?
+  - Firewall blocking localhost connections?
+  
+  **Solution:**
+  ```bash
+  # Stop all
+  !!stop-all
+  
+  # Start backends first
+  !!start SMP
+  !!start CMP
+  # Wait for "Done!"
+  
+  # Start proxy last
+  !!start Velocity
+  ```
+</Accordion>
+
+<Accordion title="Process Manager shows duplicate processes">
+  **Problem:** Process Manager lists servers multiple times
+  
+  **Explanation:** This can happen if:
+  - Servers were forcefully killed
+  - Zombie processes remain
+  
+  **Solution:**
+  1. Use Process Manager to terminate duplicates
+  2. Restart affected servers
+  3. Use `!!kill` instead of force-killing from host
+</Accordion>
+
+## Best Practices
+
+### 1. Naming Conventions
+
+Use clear, descriptive names:
+
+```yaml
+# Good
+SMP_Main:
+Creative_Build:
+Minigames_Lobby:
+
+# Avoid
+Server1:
+Server2:
+S3:
+```
+
+### 2. Resource Monitoring
+
+Use the Process Manager to track memory usage:
+
+1. Open Tools → Processes
+2. Check RAM usage for each server
+3. Adjust `-Xmx` values if needed
+
+### 3. Staggered Restarts
+
+Avoid restarting all servers at once:
+
+```bash
+!!restart SMP
+# Wait for SMP to fully restart
+!!restart CMP
+# Wait
+!!restart MMP
+```
+
+### 4. Dedicated Plugins
+
+Use different plugins per server type:
+
+- **SMP**: Economy, land claiming, jobs
+- **Creative**: WorldEdit, VoxelSniper, plots
+- **Minigames**: Custom game plugins
+- **Proxy**: Cross-server chat, lobbies
+
+### 5. Blacklist Optimization
+
+Filter unnecessary logs per server:
+
+```yaml
+Modded:
+  blacklist:
+    - "[FML]"
+    - "[Forge]"
+    - "[debug]"
+
+Vanilla:
+  blacklist: []  # Keep all logs
+```
+
+## Advanced: Dynamic Server Scaling
+
+For advanced users, use addons to dynamically start/stop servers:
+
+```python auto_scaler.py
+class mdaddon:
+    async def on_message(self, message: discord.Message):
+        if message.content == "!start-all-smp":
+            smp_servers = [p for p in self.client.servers if "SMP" in p.name]
+            for server in smp_servers:
+                if not server.is_running():
+                    server.start()
+                    await asyncio.sleep(30)  # Wait between starts
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Process Manager" href="/guides/process-manager" icon="gears">
+    Monitor all running processes across servers
+  </Card>
+  <Card title="Creating Addons" href="/guides/creating-addons" icon="code">
+    Build cross-server automation with addons
+  </Card>
+</CardGroup>

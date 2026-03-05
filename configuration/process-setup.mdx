@@ -1,0 +1,630 @@
+---
+title: Process Setup
+description: Configure Minecraft servers and proxy networks in McDis-RCON
+---
+
+Processes are the core of McDis-RCON configuration. Each process represents a Minecraft server or proxy network that McDis will manage.
+
+## Process Types
+
+McDis-RCON distinguishes between two types of processes:
+
+<CardGroup cols={2}>
+  <Card title="Servers" icon="server">
+    Minecraft server instances (Vanilla, Paper, Fabric, Spigot, etc.)
+  </Card>
+  <Card title="Networks" icon="network-wired">
+    Proxy networks (Velocity, Waterfall, Bungeecord)
+  </Card>
+</CardGroup>
+
+<Note>
+  The distinction is organizational. Both types function identically in McDis-RCON; the separation helps you organize your infrastructure logically.
+</Note>
+
+## Basic Process Configuration
+
+Processes are defined in the `Processes` section of `md_config.yml`:
+
+```yaml
+Processes:
+  Networks:
+    velocity:
+      start_cmd: java -Xms1G -Xmx2G -jar velocity.jar
+      stop_cmd: end
+      blacklist:
+        - 'logged in'
+        
+  Servers:
+    survival:
+      start_cmd: java -Xms4G -Xmx8G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist:
+        - 'Can\'t keep up'
+```
+
+## Process Naming
+
+Process names must follow these rules:
+
+<AccordionGroup>
+  <Accordion title="Allowed Characters">
+    - Letters (a-z, A-Z)
+    - Numbers (0-9)
+    - Periods (.)
+    - Hyphens (-)
+    - Underscores (_)
+    - Spaces
+    
+    **Valid examples:**
+    ```yaml
+    survival_server:
+    creative-world:
+    lobby.1:
+    SMP Server:
+    network_01:
+    ```
+    
+    **Invalid examples:**
+    ```yaml
+    server@123:     # @ not allowed
+    test#server:    # # not allowed
+    my_server!:     # ! not allowed
+    ```
+  </Accordion>
+  
+  <Accordion title="Length Limit">
+    Maximum length: **40 characters**
+    
+    ```yaml
+    # Too long (43 characters)
+    my_super_long_server_name_that_exceeds_limit:
+    
+    # OK (33 characters)
+    my_reasonably_named_server_01:
+    ```
+  </Accordion>
+  
+  <Accordion title="Reserved Names">
+    Cannot use these names:
+    - `.mdbackups`
+    - `.mdaddons`
+    - `Flask`
+    
+    These are reserved for McDis system directories.
+  </Accordion>
+  
+  <Accordion title="Case Sensitivity">
+    Process names are **case-insensitive** for commands:
+    
+    ```yaml
+    SurvivalServer:  # Defined in config
+    ```
+    
+    All of these commands work:
+    ```
+    !!start SurvivalServer
+    !!start survivalserver
+    !!start SURVIVALSERVER
+    ```
+  </Accordion>
+  
+  <Accordion title="Uniqueness">
+    Each process must have a unique name (case-insensitive):
+    
+    ```yaml
+    # ERROR: Duplicate names
+    Servers:
+      my_server:  # First definition
+        ...
+    Networks:
+      my_server:  # Duplicate! Will fail validation
+        ...
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Start Command Configuration
+
+The `start_cmd` defines how to launch the process:
+
+```yaml
+start_cmd: java -Xms4G -Xmx8G -jar paper.jar nogui
+```
+
+### Command Structure
+
+McDis splits the command by spaces and executes it:
+
+```python
+subprocess.Popen(start_cmd.split(' '), cwd=process_folder, ...)
+```
+
+<Warning>
+  **Important:** The command is split by spaces, so arguments cannot contain spaces. If you need spaces in arguments, this won't work:
+  
+  ```yaml
+  # Won't work if path has spaces
+  start_cmd: java -jar "C:\Program Files\server.jar"
+  ```
+  
+  Instead, use paths without spaces or create a wrapper script.
+</Warning>
+
+### Example Start Commands
+
+<CodeGroup>
+```yaml Paper Server
+start_cmd: java -Xms4G -Xmx8G -jar paper.jar nogui
+```
+
+```yaml Fabric Server
+start_cmd: java -Xms2G -Xmx4G -jar fabric-server-launch.jar nogui
+```
+
+```yaml Vanilla Server
+start_cmd: java -Xmx2G -jar server.jar nogui
+```
+
+```yaml Velocity Proxy
+start_cmd: java -Xms1G -Xmx2G -jar velocity.jar
+```
+
+```yaml Waterfall Proxy
+start_cmd: java -Xms512M -Xmx1G -jar waterfall.jar
+```
+
+```yaml With JVM Flags
+start_cmd: java -Xms8G -Xmx8G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -jar paper.jar nogui
+```
+
+```yaml MCDReforged
+start_cmd: python3 -m mcdreforged
+```
+
+```yaml Custom Script
+start_cmd: ./start.sh
+```
+</CodeGroup>
+
+### JVM Memory Flags
+
+<AccordionGroup>
+  <Accordion title="-Xms (Initial Heap)">
+    Sets initial Java heap size:
+    ```
+    -Xms4G    # Start with 4GB
+    -Xms512M  # Start with 512MB
+    ```
+    
+    <Tip>
+      Setting `-Xms` equal to `-Xmx` can improve performance by preventing heap resizing.
+    </Tip>
+  </Accordion>
+  
+  <Accordion title="-Xmx (Maximum Heap)">
+    Sets maximum Java heap size:
+    ```
+    -Xmx8G    # Maximum 8GB
+    -Xmx2G    # Maximum 2GB
+    ```
+    
+    <Warning>
+      Don't allocate all system RAM to Minecraft. Leave at least 2-4GB for the operating system and other processes.
+    </Warning>
+  </Accordion>
+  
+  <Accordion title="Recommended Allocations">
+    **Vanilla/Small servers:**
+    - 1-10 players: 2-4GB
+    - 10-20 players: 4-6GB
+    - 20-50 players: 6-8GB
+    
+    **Modded servers:**
+    - Light mods: 4-6GB
+    - Medium mods: 6-10GB
+    - Heavy mods: 10-16GB+
+    
+    **Proxies:**
+    - Velocity/Waterfall: 512MB-2GB
+  </Accordion>
+</AccordionGroup>
+
+### Performance Flags
+
+Optional JVM flags for better performance:
+
+```yaml
+start_cmd: java -Xms8G -Xmx8G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -jar paper.jar nogui
+```
+
+<Note>
+  These are Aikar's flags, commonly used for Minecraft servers. Research flags before using them.
+</Note>
+
+## Stop Command Configuration
+
+The `stop_cmd` defines how to gracefully shut down the process:
+
+```yaml
+stop_cmd: stop
+```
+
+This command is sent to the process's stdin when stopping.
+
+### Common Stop Commands
+
+<CardGroup cols={3}>
+  <Card title="Minecraft Servers" icon="server">
+    ```
+    stop
+    ```
+  </Card>
+  <Card title="Velocity" icon="bolt">
+    ```
+    end
+    ```
+  </Card>
+  <Card title="Waterfall/Bungee" icon="water">
+    ```
+    end
+    ```
+  </Card>
+</CardGroup>
+
+<Tip>
+  Check your server software documentation if unsure. Most Minecraft servers use `stop`, while most proxies use `end`.
+</Tip>
+
+### MCDReforged Special Case
+
+For MCDReforged:
+
+```yaml
+stop_cmd: stop
+```
+
+But also ensure in your MCDR config:
+
+```yaml
+# In MCDReforged's config.yml
+advanced_console: false
+```
+
+<Warning>
+  MCDR's `advanced_console` must be set to `false` to prevent console formatting conflicts with McDis-RCON.
+</Warning>
+
+## Blacklist Configuration
+
+The `blacklist` filters console output from Discord:
+
+```yaml
+blacklist:
+  - 'Can\'t keep up'
+  - 'Debug'
+  - 'moved too quickly'
+```
+
+Any log line containing a blacklisted term is **silently dropped** from Discord (but still sent to plugins).
+
+### Common Blacklist Patterns
+
+<AccordionGroup>
+  <Accordion title="Performance Warnings">
+    ```yaml
+    blacklist:
+      - 'Can\'t keep up'
+      - 'Is the server overloaded'
+      - 'Running'
+    ```
+  </Accordion>
+  
+  <Accordion title="Player Join/Leave (High Traffic)">
+    ```yaml
+    blacklist:
+      - 'joined the game'
+      - 'left the game'
+      - 'logged in'
+      - 'has disconnected'
+    ```
+  </Accordion>
+  
+  <Accordion title="Debug Messages">
+    ```yaml
+    blacklist:
+      - '[Debug]'
+      - 'DEBUG'
+      - '[VERBOSE]'
+    ```
+  </Accordion>
+  
+  <Accordion title="Plugin Spam">
+    ```yaml
+    blacklist:
+      - '[SomePlugin]'
+      - 'VeryVerbosePlugin:'
+      - 'Checking for updates'
+    ```
+  </Accordion>
+  
+  <Accordion title="Proxy Connection Messages">
+    ```yaml
+    blacklist:
+      - 'ServerConnector'
+      - 'InitialHandler'
+      - 'has connected'
+    ```
+  </Accordion>
+</AccordionGroup>
+
+### Blacklist Behavior
+
+- **Case-sensitive**: `'debug'` won't match `'[Debug]'`
+- **Substring matching**: `'keep up'` matches `"Can't keep up! Is the server overloaded?"`
+- **Empty blacklist**: Use `[]` or `blacklist: []` for no filtering
+- **Null/None**: If blacklist is missing or null, it's treated as empty
+
+<Tip>
+  Start with an empty blacklist and add items as you identify spam. Don't over-filter or you might miss important warnings!
+</Tip>
+
+## Multi-Server Configuration Example
+
+Here's a complete example with multiple servers and a proxy:
+
+```yaml
+Processes:
+  Networks:
+    velocity_proxy:
+      start_cmd: java -Xms1G -Xmx2G -XX:+UseG1GC -jar velocity.jar
+      stop_cmd: end
+      blacklist:
+        - 'logged in with entity id'
+        - 'has connected'
+        - 'has disconnected'
+        - 'ServerConnector'
+        
+  Servers:
+    lobby:
+      start_cmd: java -Xms2G -Xmx4G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist:
+        - 'Can\'t keep up'
+        - 'moved too quickly'
+        
+    survival:
+      start_cmd: java -Xms8G -Xmx12G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist:
+        - 'Can\'t keep up'
+        - 'Debug'
+        
+    creative:
+      start_cmd: java -Xms4G -Xmx6G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist:
+        - 'Can\'t keep up'
+        
+    minigames:
+      start_cmd: java -Xms3G -Xmx6G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: []
+```
+
+## Process Directory Structure
+
+When you define a process, McDis creates directories:
+
+```
+McDis/
+├── md_config.yml
+├── survival/
+│   ├── .mdplugins/        # Plugins for this process
+│   ├── .mdcommands/       # Predefined commands
+│   ├── server.jar
+│   ├── server.properties
+│   ├── world/
+│   └── ...
+├── creative/
+│   ├── .mdplugins/
+│   ├── .mdcommands/
+│   └── ...
+├── .mdbackups/
+│   ├── survival/
+│   └── creative/
+└── .mdaddons/
+```
+
+<Steps>
+  <Step title="Before Starting McDis">
+    Create folders matching your process names:
+    ```bash
+    mkdir survival creative velocity_proxy
+    ```
+  </Step>
+  
+  <Step title="Place Server Files">
+    Put server JAR and files in each folder:
+    ```bash
+    cp paper.jar survival/
+    cp fabric-server.jar creative/
+    cp velocity.jar velocity_proxy/
+    ```
+  </Step>
+  
+  <Step title="Start McDis">
+    McDis will create `.mdplugins` and `.mdcommands` automatically
+  </Step>
+</Steps>
+
+## Working Directory
+
+When a process starts, its working directory is set to its folder:
+
+```python
+subprocess.Popen(..., cwd=process_folder)
+```
+
+This means:
+- Relative paths in server configs work correctly
+- Server files are read from the process folder
+- Logs are written to the process folder
+
+## Empty Process Sections
+
+If you don't have networks or servers, use empty sections:
+
+```yaml
+Processes:
+  Networks:   # No networks
+  
+  Servers:
+    my_server:
+      start_cmd: java -jar server.jar
+      stop_cmd: stop
+      blacklist: []
+```
+
+Or:
+
+```yaml
+Processes:
+  Networks:
+    velocity:
+      start_cmd: java -jar velocity.jar
+      stop_cmd: end
+      blacklist: []
+      
+  Servers:    # No servers
+```
+
+## Process Configuration Validation
+
+McDis validates all process configurations on startup:
+
+```python
+# Name validation
+if not isinstance(process, str):
+    print(f'{process}: The process names must be string.')
+    
+if len(process) > 40:
+    print(f'{process}: The process name must not exceed 40 characters.')
+    
+if process in ['.mdbackups', '.mdaddons', 'Flask']:
+    print(f'{process}: A process cannot be named...')
+    
+# Command validation
+if not isinstance(process_config['start_cmd'], str):
+    print(f'{process}: The \'start_cmd\' variable must be a string.')
+    
+if not isinstance(process_config['stop_cmd'], str):
+    print(f'{process}: The \'stop_cmd\' variable must be a string.')
+    
+# Blacklist validation
+if not all([isinstance(x,str) for x in process_config['blacklist']]):
+    print(f'{process}: The \'blacklist\' variable must be a list of strings.')
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Server won't start">
+    **Check:**
+    - Is `start_cmd` correct?
+    - Does the JAR file exist in the process folder?
+    - Is Java installed and in PATH?
+    - Are there enough system resources?
+    
+    **Debug:**
+    Try running the start command manually in the process folder:
+    ```bash
+    cd survival
+    java -Xms4G -Xmx8G -jar paper.jar nogui
+    ```
+  </Accordion>
+  
+  <Accordion title="Server won't stop gracefully">
+    **Check:**
+    - Is `stop_cmd` correct for your server type?
+    - Is the server responding to commands?
+    
+    **Solution:**
+    - Verify stop command in server documentation
+    - Use `kill` command if necessary
+  </Accordion>
+  
+  <Accordion title="Process name validation fails">
+    **Error:**
+    ```
+    Process names can only contain letters, numbers, periods (.), hyphens (-), underscores (_), and spaces.
+    ```
+    
+    **Solution:**
+    Rename process to use only allowed characters:
+    ```yaml
+    # Before
+    my@server: ...
+    
+    # After
+    my_server: ...
+    ```
+  </Accordion>
+  
+  <Accordion title="Duplicate process name error">
+    **Error:**
+    ```
+    You can't have two processes with the same name: my_server
+    ```
+    
+    **Solution:**
+    Ensure all process names are unique (case-insensitive):
+    ```yaml
+    # Wrong
+    Servers:
+      survival: ...
+    Networks:
+      Survival: ...  # Duplicate!
+      
+    # Right
+    Servers:
+      survival_server: ...
+    Networks:
+      survival_proxy: ...
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Descriptive Names" icon="tag">
+    Use clear, descriptive process names: `survival_smp` instead of `server1`
+  </Card>
+  <Card title="Memory Allocation" icon="memory">
+    Test and tune memory allocation based on actual usage
+  </Card>
+  <Card title="Blacklist Wisely" icon="filter">
+    Filter spam but keep important warnings visible
+  </Card>
+  <Card title="Document Config" icon="file-lines">
+    Add comments explaining non-obvious configuration choices
+  </Card>
+</CardGroup>
+
+## Related Configuration
+
+<CardGroup cols={2}>
+  <Card title="Configuration Overview" icon="book" href="/configuration/overview">
+    Complete configuration reference
+  </Card>
+  <Card title="Discord Setup" icon="discord" href="/configuration/discord-setup">
+    Configure bot and panel
+  </Card>
+  <Card title="Advanced Options" icon="sliders" href="/configuration/advanced">
+    Flask and backup configuration
+  </Card>
+  <Card title="Process Control" icon="power-off" href="/features/process-control">
+    Managing configured processes
+  </Card>
+</CardGroup>

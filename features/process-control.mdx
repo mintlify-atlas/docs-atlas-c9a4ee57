@@ -1,0 +1,491 @@
+---
+title: Process Control
+description: Start, stop, restart, and kill Minecraft servers with McDis-RCON
+---
+
+McDis-RCON provides comprehensive process control capabilities for managing Minecraft servers and proxy networks. Control processes through Discord commands, panel buttons, or the terminal interface.
+
+## Overview
+
+Each configured process (server or network) can be independently controlled using standard lifecycle commands. McDis-RCON manages processes using Python's `subprocess.Popen`, similar to MCDReforged, without modifying your server files.
+
+<img src="https://i.imgur.com/ZYtK5nO.png" alt="Process Control Panel" />
+
+## Control Methods
+
+You can control processes through three different interfaces:
+
+<CardGroup cols={3}>
+  <Card title="Discord Panel" icon="discord">
+    Use `!!` commands or panel buttons
+  </Card>
+  <Card title="Console Threads" icon="comments">
+    Send commands directly in console threads
+  </Card>
+  <Card title="Terminal" icon="terminal">
+    Use the McDis-RCON CLI interface
+  </Card>
+</CardGroup>
+
+## Process Commands
+
+### Start Command
+
+Initiates a process using the configured `start_cmd`.
+
+<CodeGroup>
+```bash Discord Panel
+!!start my_server
+```
+
+```bash Console Thread
+start
+```
+
+```bash Terminal
+start my_server
+```
+</CodeGroup>
+
+**What happens:**
+1. McDis creates necessary directories (`.mdplugins`, `.mdcommands`)
+2. Process is spawned using `subprocess.Popen` with the configured command
+3. Console output streaming begins
+4. Process plugins are loaded
+5. Console thread shows `[Initializing Process...]`
+
+<Info>
+  The start command uses your configured `start_cmd` from `md_config.yml`. Make sure this command is correct for your server type.
+</Info>
+
+**Example Configuration:**
+```yaml
+Processes:
+  Servers:
+    my_server:
+      start_cmd: java -Xms2G -Xmx4G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: []
+```
+
+### Stop Command
+
+Gracefully stops a process using the configured `stop_cmd`.
+
+<CodeGroup>
+```bash Discord Panel
+!!stop my_server
+```
+
+```bash Console Thread
+stop
+```
+
+```bash Terminal
+stop my_server
+```
+</CodeGroup>
+
+**What happens:**
+1. McDis sends the `stop_cmd` to the process stdin
+2. Process begins shutdown sequence
+3. McDis waits for process to terminate naturally
+4. Plugins are unloaded after process stops
+5. Console thread shows `[Process Stopped]`
+
+<Note>
+  McDis-RCON waits indefinitely for the process to stop gracefully. If the process hangs, use the `kill` command instead.
+</Note>
+
+### Restart Command
+
+Stops and then starts a process in sequence.
+
+<CodeGroup>
+```bash Discord Panel
+!!restart my_server
+```
+
+```bash Console Thread
+restart
+```
+
+```bash Terminal
+restart my_server
+```
+</CodeGroup>
+
+**What happens:**
+1. Stop command is executed
+2. McDis waits for process to fully terminate
+3. Start command is automatically executed
+4. New process begins with fresh state
+
+<Tip>
+  Restart is useful after configuration changes that require a full process reload, such as server.properties modifications.
+</Tip>
+
+### Kill Command
+
+Forcefully terminates a process without waiting for graceful shutdown.
+
+<CodeGroup>
+```bash Discord Panel
+!!kill my_server
+```
+
+```bash Console Thread
+kill
+```
+
+```bash Terminal
+kill my_server
+```
+</CodeGroup>
+
+**What happens:**
+1. McDis sends SIGKILL to the subprocess
+2. McDis also identifies and kills the actual Java process
+3. Process terminates immediately
+4. Plugins are unloaded
+5. Console thread shows `[Process Stopped]`
+
+<Warning>
+  **Use kill only when necessary!** Force killing a Minecraft server can cause:
+  - World corruption
+  - Data loss
+  - Player inventory loss
+  - Incomplete chunk saves
+  
+  Always prefer the `stop` command for graceful shutdowns.
+</Warning>
+
+**When to use kill:**
+- Server is frozen and not responding to stop command
+- Process is stuck in infinite loop
+- Emergency shutdown required
+- Server hangs during shutdown
+
+## Batch Operations
+
+Control multiple processes simultaneously using `-all` suffix:
+
+<CodeGroup>
+```bash Start All
+!!start-all
+```
+
+```bash Stop All
+!!stop-all
+```
+
+```bash Restart All
+!!restart-all
+```
+
+```bash Kill All
+!!kill-all
+```
+</CodeGroup>
+
+<Info>
+  Batch operations execute commands on all configured processes, including both servers and networks.
+</Info>
+
+**Example Output:**
+```
+✔ Initializing processes.
+```
+
+All configured processes will start simultaneously.
+
+## Panel Button Interface
+
+The Discord panel provides an interactive button interface for process control.
+
+### Accessing Process Controls
+
+<Steps>
+  <Step title="Click Processes Button">
+    In the main panel, click the **Processes** button to expand the process control interface.
+  </Step>
+  
+  <Step title="Select Process">
+    Use the dropdown menu (middle button) to cycle through available processes.
+  </Step>
+  
+  <Step title="Execute Command">
+    Click the desired action button:
+    - **▶️ Start** - Start the selected process
+    - **⏹️ Stop** - Stop the selected process
+    - **🔄 Restart** - Restart the selected process
+    - **⚠️ Kill** - Force kill the selected process
+  </Step>
+  
+  <Step title="Return to Main Panel">
+    Click **⬅️** to return to the main panel view.
+  </Step>
+</Steps>
+
+<Tip>
+  The button interface is ideal for mobile Discord users who may find typing commands cumbersome.
+</Tip>
+
+## Process States
+
+Processes in McDis-RCON have the following states:
+
+### Running
+- Process is active and accepting commands
+- Console output is being relayed to Discord
+- Plugins are loaded and active
+- RAM and disk usage are trackable
+
+### Stopped
+- No active process
+- Console output is not being streamed
+- Plugins are unloaded
+- Can be started at any time
+
+### Starting
+- Process is being initialized
+- Console shows `[Initializing Process...]`
+- Brief state during startup sequence
+
+### Stopping
+- Stop command has been sent
+- Process is shutting down gracefully
+- Console output still being relayed
+- Transitions to Stopped when complete
+
+## Advanced Process Management
+
+### Finding Real Processes
+
+McDis-RCON tracks both the subprocess and the actual Java process:
+
+```python:mcdis_rcon/classes/Process.py
+def _find_real_process(self):
+    abs_file_path = os.path.abspath(self.path_files)
+    
+    for process in psutil.process_iter():
+        try:
+            javas = ['java', 'java.exe']
+            cond_1 = process.name() in javas
+            cond_2 = os.path.commonpath([abs_file_path, process.cwd()]) == abs_file_path
+            cond_3 = any([java in process.cmdline()[0] for java in javas])
+            cond_4 = process.memory_info().rss // (1024**2) > 50
+            
+            if cond_1 and cond_2 and cond_3 and cond_4:
+                self.real_process = process
+                break
+        except: pass
+```
+
+This ensures that the actual Java server process is tracked for resource monitoring and force killing.
+
+### Graceful Shutdown on Exit
+
+When McDis-RCON itself is shutting down (Ctrl+C or `exit` command):
+
+<Steps>
+  <Step title="Stop Commands Sent">
+    All running processes receive their configured `stop_cmd`.
+  </Step>
+  
+  <Step title="60-Second Grace Period">
+    McDis waits up to 60 seconds for processes to close gracefully.
+    
+    Console displays countdown:
+    ```
+    Processes will be forcibly closed in 60 seconds...
+    Processes will be forcibly closed in 59 seconds...
+    ...
+    ```
+  </Step>
+  
+  <Step title="Force Kill if Necessary">
+    If any process remains after 60 seconds, it's force killed.
+  </Step>
+  
+  <Step title="Clean Exit">
+    McDis-RCON exits after all processes are stopped.
+  </Step>
+</Steps>
+
+<Note>
+  This behavior is handled by the signal handler for SIGINT (Ctrl+C) and ensures servers are properly shut down even when McDis itself is terminated.
+</Note>
+
+## Console Command Execution
+
+Any text sent to a console thread that isn't a McDis command is forwarded to the server:
+
+```bash
+# In Console Thread
+list                    # Executes /list on server
+tp Steve 0 64 0        # Executes /tp command
+say Hello players!     # Executes /say command
+```
+
+**Implementation:**
+```python:mcdis_rcon/classes/Process.py
+def execute(self, command: str):
+    try:
+        self.process.stdin.write((command + '\n').encode())
+        self.process.stdin.flush()
+    except:
+        pass
+```
+
+Commands are written directly to the process stdin, exactly as if you typed them in the server console.
+
+## Resource Monitoring
+
+### RAM Usage
+
+View current RAM usage for running processes:
+
+```bash
+status  # In McDis terminal
+```
+
+The panel displays RAM usage for each active process. McDis tracks the actual Java process memory:
+
+```python:mcdis_rcon/classes/Process.py
+def ram_usage(self) -> str:
+    if not self.is_running(): 
+        pass
+    elif not isinstance(self.real_process, psutil.Process):
+        self._find_real_process()
+    elif not self.real_process.is_running():
+        self._find_real_process()
+        
+    return ram_usage(self.real_process)
+```
+
+### Disk Usage
+
+Disk usage for each process directory is calculated and displayed:
+
+```python:mcdis_rcon/classes/Process.py
+def disk_usage(self, string = True) -> float:
+    return get_path_size(self.path_files, string = string)
+```
+
+## Process Configuration
+
+Each process is configured in `md_config.yml`:
+
+### Server Configuration
+
+```yaml
+Processes:
+  Servers:
+    survival_server:
+      start_cmd: java -Xms4G -Xmx8G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist:
+        - 'Can\'t keep up'
+        - 'Debug'
+        
+    creative_server:
+      start_cmd: java -Xms2G -Xmx4G -jar fabric-server-launch.jar nogui
+      stop_cmd: stop
+      blacklist: []
+```
+
+### Network Configuration
+
+```yaml
+Processes:
+  Networks:
+    velocity_proxy:
+      start_cmd: java -Xms1G -Xmx2G -jar velocity.jar
+      stop_cmd: end
+      blacklist:
+        - 'logged in'
+```
+
+<Note>
+  Network processes often use `end` instead of `stop` as their stop command. Check your proxy software documentation.
+</Note>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Process starts but immediately stops">
+    **Possible causes:**
+    - Incorrect `start_cmd` in configuration
+    - Missing server files (server.jar, etc.)
+    - Java not in PATH
+    - Insufficient RAM
+    - Port already in use
+    
+    **Solution:**
+    Check the console thread for error messages. Test your start command manually in the server directory.
+  </Accordion>
+  
+  <Accordion title="Process won't stop gracefully">
+    **Possible causes:**
+    - Incorrect `stop_cmd` in configuration
+    - Server plugin preventing shutdown
+    - Server frozen or deadlocked
+    
+    **Solution:**
+    Use the `kill` command to force termination. Review server logs for shutdown errors.
+  </Accordion>
+  
+  <Accordion title="Console shows 'Process Stopped' but server still running">
+    **Possible causes:**
+    - Server started outside of McDis-RCON
+    - Process tracking lost due to error
+    
+    **Solution:**
+    Use the Process Manager tool (Tools → Processes) to view all running Java processes and kill them manually.
+  </Accordion>
+  
+  <Accordion title="Can't execute commands in server">
+    **Possible causes:**
+    - Process is not running
+    - Wrong console thread
+    - Server not accepting stdin
+    
+    **Solution:**
+    Ensure the process is running (green status in panel). Verify you're in the correct console thread.
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Stop, Not Kill" icon="hand">
+    Always use the `stop` command for shutdowns. Only use `kill` in emergencies to prevent data loss.
+  </Card>
+  <Card title="Wait for Full Startup" icon="clock">
+    Allow servers to fully start before executing commands or restarting again.
+  </Card>
+  <Card title="Monitor Console Output" icon="eye">
+    Watch the console thread during start/stop to catch errors early.
+  </Card>
+  <Card title="Test Start Commands" icon="flask">
+    Verify your start commands work correctly before adding them to configuration.
+  </Card>
+</CardGroup>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Console Relay" icon="terminal" href="/features/console-relay">
+    Learn how console output is streamed
+  </Card>
+  <Card title="Discord Panel" icon="grid" href="/features/discord-panel">
+    Master the panel interface
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/process-setup">
+    Configure process settings
+  </Card>
+  <Card title="Backup System" icon="database" href="/features/backup-system">
+    Back up servers before major changes
+  </Card>
+</CardGroup>

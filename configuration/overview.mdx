@@ -1,0 +1,554 @@
+---
+title: Configuration Overview
+description: Understanding the md_config.yml configuration file structure
+---
+
+McDis-RCON is configured through a single YAML file called `md_config.yml`. This file controls all aspects of McDis behavior, from Discord connection to process management.
+
+## Configuration File Location
+
+The `md_config.yml` file must be located in the directory where you run `mcdis run` (your McDis root directory):
+
+```
+McDis/
+├── md_config.yml  ← Configuration file
+├── server1/
+├── server2/
+└── ...
+```
+
+## Generating Configuration
+
+Create the default configuration file:
+
+```bash
+mcdis init
+```
+
+This generates a template `md_config.yml` with commented examples:
+
+```yaml
+# =========================================
+#         McDis RCON Configuration
+# =========================================
+
+### Application designed to stream the Minecraft console to Discord.
+### This application is intended to work on Linux systems.
+
+### General Advice:
+### While it may run on Windows, some features may not work as expected.
+### The File Manager may not function properly if you do not own the files.
+### To apply any changes, you must restart McDis!
+```
+
+<Warning>
+  **Configuration changes require a restart!** McDis-RCON only reads the configuration file on startup. Use the **Restart** button in the panel or restart manually.
+</Warning>
+
+## Configuration Structure
+
+The configuration file has several main sections:
+
+<CardGroup cols={2}>
+  <Card title="Bot Token" icon="key">
+    Discord bot authentication token
+  </Card>
+  <Card title="Panel ID" icon="hashtag">
+    Discord channel ID for the control panel
+  </Card>
+  <Card title="Language" icon="language">
+    Interface language (en/es)
+  </Card>
+  <Card title="Backups" icon="database">
+    Number of backups to retain (1-5)
+  </Card>
+  <Card title="Flask" icon="server">
+    File download server configuration
+  </Card>
+  <Card title="Processes" icon="server">
+    Server and network definitions
+  </Card>
+</CardGroup>
+
+## Full Configuration Example
+
+Here's a complete example with explanations:
+
+```yaml
+# =========================================
+#         McDis RCON Configuration
+# =========================================
+
+### Discord Bot Configuration
+Bot Token: YOUR_BOT_TOKEN_HERE
+
+### Panel Channel ID
+Panel ID: 1234567890123456789
+
+### Language Settings
+### Valid Values: [en, es]
+### Default Value: en
+Language: en
+
+### Backup Retention
+### Valid Values: [1, 5] (inclusive)
+### Default Value: 3
+Backups: 3
+
+### Flask Download Server
+Flask:
+  Allow: false
+  IP: '0.0.0.0'
+  Port: 8000
+
+### Process Definitions
+Processes:
+  Networks:
+    velocity:
+      start_cmd: java -Xms1G -Xmx2G -jar velocity.jar
+      stop_cmd: end
+      blacklist:
+        - 'logged in'
+        - 'has disconnected'
+
+  Servers:
+    survival:
+      start_cmd: java -Xms4G -Xmx8G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist:
+        - 'Can\'t keep up'
+        - 'Debug'
+        
+    creative:
+      start_cmd: java -Xms2G -Xmx4G -jar fabric-server-launch.jar nogui
+      stop_cmd: stop
+      blacklist: []
+```
+
+## Configuration Sections Explained
+
+### Bot Token
+
+```yaml
+Bot Token: YOUR_BOT_TOKEN_HERE
+```
+
+- **Type**: String
+- **Required**: Yes
+- **Description**: Your Discord bot token from the Discord Developer Portal
+
+<Note>
+  Get your bot token from the [Discord Developer Portal](https://discord.com/developers/applications). See [Discord Setup](/configuration/discord-setup) for details.
+</Note>
+
+### Panel ID
+
+```yaml
+Panel ID: 1234567890123456789
+```
+
+- **Type**: Integer
+- **Required**: Yes
+- **Description**: Discord channel ID where the panel will be created
+
+<Tip>
+  Enable Developer Mode in Discord (User Settings → Advanced → Developer Mode), then right-click a channel and select "Copy ID".
+</Tip>
+
+### Language
+
+```yaml
+Language: en
+```
+
+- **Type**: String
+- **Required**: No
+- **Default**: `en`
+- **Valid Values**: `en` (English), `es` (Spanish)
+- **Description**: Interface language for messages and responses
+
+### Backups
+
+```yaml
+Backups: 3
+```
+
+- **Type**: Integer
+- **Required**: No
+- **Default**: `3`
+- **Valid Values**: 1-5 (inclusive)
+- **Description**: Maximum number of backup versions to retain per process
+
+<Info>
+  When this limit is reached, the oldest backup is automatically deleted when creating a new one.
+</Info>
+
+### Flask
+
+```yaml
+Flask:
+  Allow: false
+  IP: '0.0.0.0'
+  Port: 8000
+```
+
+- **Allow**:
+  - Type: Boolean
+  - Default: `false`
+  - Description: Enable/disable Flask download server
+
+- **IP**:
+  - Type: String
+  - Default: `'0.0.0.0'`
+  - Description: IP address to bind Flask server (use public IP for external access)
+
+- **Port**:
+  - Type: Integer
+  - Default: `8000`
+  - Description: Port for Flask server to listen on
+
+<Warning>
+  Flask server is required for downloading files larger than 5MB. Ensure the port is open in your firewall and the IP is publicly accessible.
+</Warning>
+
+### Processes
+
+The processes section defines all managed servers and networks:
+
+```yaml
+Processes:
+  Networks:
+    <network_name>:
+      start_cmd: <command>
+      stop_cmd: <command>
+      blacklist: [<terms>]
+      
+  Servers:
+    <server_name>:
+      start_cmd: <command>
+      stop_cmd: <command>
+      blacklist: [<terms>]
+```
+
+See [Process Setup](/configuration/process-setup) for detailed information.
+
+## Configuration Validation
+
+McDis-RCON validates configuration on startup:
+
+### Bot Token Validation
+
+```
+✖ The 'Bot Token' variable must be a string.
+```
+
+### Panel ID Validation
+
+```
+✖ The 'Panel ID' variable must be an integer.
+```
+
+### Language Validation
+
+```
+✖ The 'Language' variable must be one of the following: en, es.
+```
+
+### Backups Validation
+
+```
+✖ The 'Backups' variable must be between 1 and 5, not 10.
+```
+
+### Flask Validation
+
+```
+✖ The 'Flask: Allow' variable must be a boolean.
+✖ The 'Flask: IP' variable must be a string.
+✖ The 'Flask: Port' variable must be an integer.
+```
+
+### Process Validation
+
+```
+✖ my_server: The process name must not exceed 40 characters.
+✖ .mdbackups: A process cannot be named '.mdbackups', '.mdaddons' or Flask.
+✖ You can't have two processes with the same name: my_server
+✖ server@123: Process names can only contain letters, numbers, periods (.), hyphens (-), underscores (_), and spaces.
+✖ my_server: The 'start_cmd' variable must be a string.
+✖ my_server: The 'blacklist' variable must be a list of strings.
+```
+
+<Info>
+  If validation fails, McDis-RCON will exit with an error message. Fix the issue in `md_config.yml` and restart.
+</Info>
+
+## Configuration Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Backup Configuration" icon="copy">
+    Keep a backup copy of `md_config.yml` before making changes
+  </Card>
+  <Card title="Use Comments" icon="comment">
+    Add comments to document your configuration decisions
+  </Card>
+  <Card title="Validate YAML" icon="check">
+    Use a YAML validator to check syntax before restarting
+  </Card>
+  <Card title="Version Control" icon="code-branch">
+    Consider using Git to track configuration changes
+  </Card>
+</CardGroup>
+
+## Common Configuration Patterns
+
+### Single Server Setup
+
+```yaml
+Processes:
+  Networks:
+  Servers:
+    my_server:
+      start_cmd: java -Xms4G -Xmx8G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist:
+        - 'Can\'t keep up'
+```
+
+### Multi-Server Network
+
+```yaml
+Processes:
+  Networks:
+    proxy:
+      start_cmd: java -Xms1G -Xmx2G -jar velocity.jar
+      stop_cmd: end
+      blacklist: []
+      
+  Servers:
+    lobby:
+      start_cmd: java -Xms2G -Xmx4G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: []
+      
+    survival:
+      start_cmd: java -Xms6G -Xmx12G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: []
+      
+    creative:
+      start_cmd: java -Xms2G -Xmx4G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: []
+```
+
+### Development Setup
+
+```yaml
+# Development configuration
+Language: en
+Backups: 5  # Keep more backups during development
+
+Flask:
+  Allow: true  # Enable for testing downloads
+  IP: '127.0.0.1'  # Local only
+  Port: 8000
+
+Processes:
+  Servers:
+    test_server:
+      start_cmd: java -Xms1G -Xmx2G -jar server.jar nogui
+      stop_cmd: stop
+      blacklist: []  # No filtering during development
+```
+
+### Production Setup
+
+```yaml
+# Production configuration
+Language: en
+Backups: 3  # Standard retention
+
+Flask:
+  Allow: true
+  IP: '123.45.67.89'  # Public IP
+  Port: 8000
+
+Processes:
+  Networks:
+    velocity:
+      start_cmd: java -Xms1G -Xmx2G -XX:+UseG1GC -jar velocity.jar
+      stop_cmd: end
+      blacklist:
+        - 'logged in'
+        - 'has disconnected'
+        - 'ServerConnector'
+        
+  Servers:
+    lobby:
+      start_cmd: java -Xms4G -Xmx4G -XX:+UseG1GC -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist:
+        - 'Can\'t keep up'
+        - 'Debug'
+        - 'moved too quickly'
+```
+
+## Editing Configuration
+
+You can edit the configuration file:
+
+### Via File Manager (Discord)
+
+<Steps>
+  <Step title="Open File Manager">
+    Click **Files** in the Discord panel
+  </Step>
+  
+  <Step title="Navigate to Root">
+    Ensure you're in the `McDis/` directory
+  </Step>
+  
+  <Step title="Select md_config.yml">
+    Choose `md_config.yml` from the dropdown
+  </Step>
+  
+  <Step title="Edit">
+    Click **Edit** to open the text editor (if file is < 4000 chars)
+    
+    Or click **Request** to download, edit locally, and re-upload
+  </Step>
+</Steps>
+
+### Via SSH/Terminal
+
+```bash
+# Using nano
+nano /path/to/mcdis/md_config.yml
+
+# Using vim
+vim /path/to/mcdis/md_config.yml
+
+# Using your preferred editor
+code /path/to/mcdis/md_config.yml
+```
+
+## Applying Configuration Changes
+
+After editing `md_config.yml`:
+
+<Steps>
+  <Step title="Save File">
+    Ensure your changes are saved to disk
+  </Step>
+  
+  <Step title="Validate Syntax">
+    Optionally validate YAML syntax:
+    
+    ```bash
+    python3 -c "import yaml; yaml.safe_load(open('md_config.yml'))"
+    ```
+  </Step>
+  
+  <Step title="Restart McDis">
+    Click the **Restart** button in the Discord panel
+    
+    Or restart manually:
+    ```bash
+    # In McDis terminal, type:
+    exit
+    # Then restart:
+    mcdis run
+    ```
+  </Step>
+  
+  <Step title="Verify Changes">
+    Check the terminal output for validation errors
+  </Step>
+</Steps>
+
+## Troubleshooting Configuration Issues
+
+<AccordionGroup>
+  <Accordion title="YAML syntax error">
+    **Common causes:**
+    - Missing colon after key
+    - Incorrect indentation (use spaces, not tabs)
+    - Unquoted strings with special characters
+    - Missing quotes around strings
+    
+    **Example fix:**
+    ```yaml
+    # Wrong
+    Bot Token YOUR_TOKEN
+    
+    # Right
+    Bot Token: YOUR_TOKEN
+    ```
+  </Accordion>
+  
+  <Accordion title="Configuration not loading">
+    **Possible causes:**
+    - File not named `md_config.yml` exactly
+    - File in wrong directory
+    - File encoding issues
+    
+    **Solution:**
+    Ensure file is in the same directory where you run `mcdis run` and named exactly `md_config.yml`.
+  </Accordion>
+  
+  <Accordion title="Changes not taking effect">
+    **Cause:**
+    Configuration is only read on startup
+    
+    **Solution:**
+    Restart McDis-RCON after making changes.
+  </Accordion>
+  
+  <Accordion title="Special characters in process names">
+    **Cause:**
+    Process names can only contain: letters, numbers, `.`, `-`, `_`, spaces
+    
+    **Solution:**
+    Rename process to use only allowed characters:
+    ```yaml
+    # Wrong
+    server@123: ...
+    
+    # Right
+    server_123: ...
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Configuration Reference
+
+For detailed information on specific configuration sections:
+
+<CardGroup cols={2}>
+  <Card title="Discord Setup" icon="discord" href="/configuration/discord-setup">
+    Bot token and panel configuration
+  </Card>
+  <Card title="Process Setup" icon="server" href="/configuration/process-setup">
+    Configuring servers and networks
+  </Card>
+  <Card title="Advanced Options" icon="sliders" href="/configuration/advanced">
+    Flask, backups, and optimization
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Step-by-step first-time setup
+  </Card>
+</CardGroup>
+
+## Example Configurations
+
+See real-world configurations in production:
+
+<CardGroup cols={2}>
+  <Card title="AeternumBot" icon="github" href="https://github.com/mjpr-3435/AeternumBot">
+    Complete configuration for Aeternum SMP
+  </Card>
+  <Card title="Template Config" icon="file">
+    Use `mcdis init` to generate a template with examples
+  </Card>
+</CardGroup>

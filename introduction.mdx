@@ -1,0 +1,110 @@
+---
+title: Introduction
+description: Overview of McDis-RCON - Stream your Minecraft server console to Discord
+---
+
+McDis-RCON is a Python application that allows you to relay the console of a Minecraft server to Discord, facilitating remote and efficient management through a Discord bot.
+
+<img src="https://i.imgur.com/lE4GRIV.png" alt="McDis-RCON Panel" />
+
+## What is McDis-RCON?
+
+McDis-RCON bridges the gap between your Minecraft servers and Discord, providing a powerful management interface directly within your Discord server. It streams console output in real-time, allows command execution, and provides comprehensive file management—all without modifying your Minecraft server files.
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Process Control" icon="power-off">
+    Start, stop, restart, and terminate servers with simple commands or button clicks
+  </Card>
+  <Card title="Console Relay" icon="terminal">
+    View and interact with server console output directly in Discord threads
+  </Card>
+  <Card title="File Management" icon="folder">
+    Browse, edit, upload, and download server files through Discord interface
+  </Card>
+  <Card title="Automated Backups" icon="clock">
+    Create and restore backups with configurable retention policies
+  </Card>
+  <Card title="Multi-Language Support" icon="language">
+    Built-in support for English and Spanish
+  </Card>
+  <Card title="Plugin System" icon="puzzle-piece">
+    Extend functionality with plugins and addons
+  </Card>
+</CardGroup>
+
+## Why Choose McDis-RCON?
+
+<AccordionGroup>
+  <Accordion title="Non-Invasive Architecture">
+    McDis-RCON runs processes using `Popen`, similar to MCDReforged. It doesn't modify your Minecraft server files, making it safe and reversible.
+  </Accordion>
+  
+  <Accordion title="Multiple Launcher Compatibility">
+    Works seamlessly with Fabric, Paper, Vanilla, Velocity, Waterfall, Bungeecord, and any Java process.
+  </Accordion>
+  
+  <Accordion title="Multi-Server Management">
+    Manage multiple servers and networks simultaneously from a single Discord panel.
+  </Accordion>
+  
+  <Accordion title="Advanced Error Reporting">
+    Errors are automatically detected and reported in Discord, simplifying monitoring and troubleshooting.
+  </Accordion>
+  
+  <Accordion title="MCDReforged Compatible">
+    Can work alongside MCDReforged. Just ensure `advanced_console` is set to `False` in MCDR configuration.
+  </Accordion>
+</AccordionGroup>
+
+## Use Cases
+
+### Remote Server Management
+Manage your Minecraft servers from anywhere using Discord on desktop or mobile. No need for SSH or direct server access.
+
+### Team Collaboration
+Multiple administrators can monitor and control servers through Discord, with all actions visible in the shared console threads.
+
+### Multi-Server Networks
+Perfect for managing complex setups with multiple servers and proxy networks (Velocity, Bungeecord, Waterfall).
+
+### Automated Operations
+Use plugins to automate tasks, respond to server events, and integrate with other Discord features.
+
+## System Requirements
+
+- Python 3.8 or higher
+- Discord bot with administrator permissions
+- Linux (recommended) or Windows
+- Network access for Discord API
+
+<Note>
+  While McDis-RCON can run on Windows, it is primarily designed for Linux systems. Some features may have limited functionality on Windows.
+</Note>
+
+## Community and Support
+
+McDis-RCON has been tested over several months on multiple production servers and has proven to be stable and reliable.
+
+Join the Discord community:
+[![Discord](https://img.shields.io/badge/Join-Discord-5865F2?logo=discord&logoColor=white)](https://discord.gg/xB9N38HBJY)
+
+Contact the developer directly on Discord: **kassiulo**
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+    Get your first server running in minutes
+  </Card>
+  <Card title="Installation" icon="download" href="/installation">
+    Detailed installation instructions
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/overview">
+    Learn how to configure McDis-RCON
+  </Card>
+  <Card title="Features" icon="star" href="/features/overview">
+    Explore all available features
+  </Card>
+</CardGroup>

@@ -1,0 +1,547 @@
+---
+title: Predefined Commands
+description: Create and manage predefined commands using the .mdcommands system
+icon: terminal
+---
+
+McDis-RCON allows you to define reusable commands for each process using YAML files stored in the `.mdcommands` folder. This feature is perfect for automating complex or frequently-used server commands.
+
+## What Are Predefined Commands?
+
+Predefined commands are:
+
+- **YAML-based**: Stored as `.yml` files
+- **Process-specific**: Each server/network has its own `.mdcommands` folder
+- **Multi-action**: One command can execute multiple server console commands
+- **Discord-accessible**: Execute via the File Manager interface
+
+## Command File Location
+
+Each process has a dedicated `.mdcommands` folder:
+
+```
+McDis/
+├── server 1/
+│   ├── .mdcommands/
+│   │   ├── mobswitch.yml      ← Predefined commands for server 1
+│   │   ├── worldborder.yml
+│   │   └── maintenance.yml
+│   └── server.jar
+├── server 2/
+│   ├── .mdcommands/
+│   │   └── custom_events.yml  ← Predefined commands for server 2
+│   └── server.jar
+└── network 1/
+    ├── .mdcommands/
+    │   └── alerts.yml         ← Predefined commands for network 1
+    └── velocity.jar
+```
+
+## Command File Format
+
+Predefined commands are defined in YAML format:
+
+```yaml mobswitch.yml
+Reset:
+  - "gamerule doMobSpawning false"
+  - "kill @e[type=!player]"
+  - "say Mob spawning disabled and all mobs cleared"
+
+Over:
+  - "gamerule doMobSpawning false"
+  - "execute in minecraft:overworld run kill @e[type=!player]"
+  - "say Overworld mobs cleared"
+
+Nether:
+  - "gamerule doMobSpawning false"
+  - "execute in minecraft:the_nether run kill @e[type=!player]"
+  - "say Nether mobs cleared"
+
+Enable:
+  - "gamerule doMobSpawning true"
+  - "say Mob spawning enabled"
+```
+
+**Structure:**
+- **Top-level keys**: Action names (e.g., `Reset`, `Over`, `Enable`)
+- **Values**: List of commands to execute in sequence
+
+<Info>
+Each command in the list is executed in order on the server console.
+</Info>
+
+## Creating Predefined Commands
+
+<Steps>
+  <Step title="Access File Manager">
+    Click the **Files** button in the Discord panel
+  </Step>
+  
+  <Step title="Navigate to .mdcommands">
+    Go to `McDis/<process>/.mdcommands`
+    
+    ![Commands Interface](https://i.imgur.com/5r3AMUI.png)
+  </Step>
+  
+  <Step title="Create new command">
+    Select "Create new command" from the dropdown
+  </Step>
+  
+  <Step title="Define command name">
+    Enter a name for your command file (e.g., `mobswitch`)
+  </Step>
+  
+  <Step title="Edit the YAML file">
+    Use the text editor to define your actions and commands
+  </Step>
+  
+  <Step title="Save the file">
+    Confirm your changes to create the command
+  </Step>
+</Steps>
+
+## Using Predefined Commands
+
+### Via File Manager Interface
+
+<Steps>
+  <Step title="Navigate to .mdcommands">
+    Open File Manager and go to the process's `.mdcommands` folder
+  </Step>
+  
+  <Step title="Select command file">
+    Choose the command file from the dropdown (e.g., `mobswitch`)
+    
+    ![Command Actions](https://i.imgur.com/5KCcmi2.png)
+  </Step>
+  
+  <Step title="Choose action">
+    Select the specific action from the dropdown (e.g., `Reset`, `Over`, `Enable`)
+  </Step>
+  
+  <Step title="Execute">
+    Click the **Execute** button to run the command sequence
+  </Step>
+</Steps>
+
+### Command Interface Controls
+
+<CardGroup cols={2}>
+  <Card title="⬅️ Back" icon="arrow-left">
+    Return to the .mdcommands folder view
+  </Card>
+  <Card title="🔄 Reload" icon="rotate">
+    Refresh the command interface
+  </Card>
+  <Card title="Execute" icon="play">
+    Run the selected action's command sequence
+  </Card>
+  <Card title="Edit" icon="pen">
+    Open the YAML file for editing
+  </Card>
+  <Card title="Delete" icon="trash">
+    Remove the command file
+  </Card>
+  <Card title="Dropdown" icon="list">
+    Select which action to execute
+  </Card>
+</CardGroup>
+
+## Example: MobSwitch Commands
+
+A practical example for managing mob spawning on a Minecraft server:
+
+```yaml mobswitch.yml
+Reset:
+  - "gamerule doMobSpawning false"
+  - "kill @e[type=!player]"
+  - "say [MobSwitch] All mobs cleared and spawning disabled"
+
+Overworld:
+  - "execute in minecraft:overworld run kill @e[type=!player]"
+  - "say [MobSwitch] Overworld mobs cleared"
+
+Nether:
+  - "execute in minecraft:the_nether run kill @e[type=!player]"
+  - "say [MobSwitch] Nether mobs cleared"
+
+End:
+  - "execute in minecraft:the_end run kill @e[type=!player]"
+  - "say [MobSwitch] End mobs cleared"
+
+Enable:
+  - "gamerule doMobSpawning true"
+  - "say [MobSwitch] Mob spawning enabled"
+
+Disable:
+  - "gamerule doMobSpawning false"
+  - "say [MobSwitch] Mob spawning disabled"
+```
+
+**Usage:**
+1. Navigate to `.mdcommands/mobswitch`
+2. Select action (e.g., "Reset")
+3. Click Execute
+4. All commands run sequentially on the server
+
+## Example: World Border Commands
+
+Manage world borders across dimensions:
+
+```yaml worldborder.yml
+SetNormal:
+  - "worldborder set 10000"
+  - "say World border set to 10,000 blocks"
+
+SetLarge:
+  - "worldborder set 30000"
+  - "say World border set to 30,000 blocks"
+
+Expand:
+  - "worldborder set 50000 600"
+  - "say World border expanding to 50,000 blocks over 10 minutes"
+
+Shrink:
+  - "worldborder set 5000 300"
+  - "say World border shrinking to 5,000 blocks over 5 minutes"
+
+Center:
+  - "worldborder center 0 0"
+  - "say World border centered at spawn (0, 0)"
+
+Damage:
+  - "worldborder damage amount 2"
+  - "worldborder damage buffer 5"
+  - "say World border damage configured"
+```
+
+## Example: Maintenance Commands
+
+Routine maintenance tasks:
+
+```yaml maintenance.yml
+BackupWarning:
+  - "say [Maintenance] Server backup starting in 5 minutes"
+  - "say [Maintenance] Please finish your activities"
+
+BackupStarting:
+  - "say [Maintenance] Backup starting now"
+  - "save-off"
+  - "save-all"
+
+BackupComplete:
+  - "save-on"
+  - "say [Maintenance] Backup complete. Thank you for your patience!"
+
+RestartWarning5:
+  - "say [Restart] Server restarting in 5 minutes"
+
+RestartWarning1:
+  - "say [Restart] Server restarting in 1 minute"
+  - "say [Restart] Please log out to avoid rollbacks"
+
+ClearLag:
+  - "kill @e[type=item]"
+  - "say [Maintenance] Dropped items cleared"
+```
+
+## Example: Permission Commands
+
+Manage player permissions:
+
+```yaml permissions.yml
+GrantBuilder:
+  - "lp user {username} parent add builder"
+  - "say Granted builder permissions to {username}"
+
+GrantModerator:
+  - "lp user {username} parent add moderator"
+  - "say Granted moderator permissions to {username}"
+
+RemoveBuilder:
+  - "lp user {username} parent remove builder"
+  - "say Removed builder permissions from {username}"
+
+ListPerms:
+  - "lp user {username} info"
+```
+
+<Note>
+Replace `{username}` with actual player names when executing. Some servers support placeholder syntax.
+</Note>
+
+## Example: Event Commands
+
+Special event configurations:
+
+```yaml events.yml
+StartPVP:
+  - "gamerule pvp true"
+  - "difficulty hard"
+  - "say [Event] PVP Event starting! Fight!"
+
+EndPVP:
+  - "gamerule pvp false"
+  - "difficulty normal"
+  - "say [Event] PVP Event ended. Peace restored."
+
+StartBuildComp:
+  - "time set day"
+  - "weather clear"
+  - "gamerule doDaylightCycle false"
+  - "say [Event] Build Competition started! Good luck!"
+
+EndBuildComp:
+  - "gamerule doDaylightCycle true"
+  - "say [Event] Build Competition ended. Great work everyone!"
+```
+
+## Editing Commands
+
+You can edit existing commands via the File Manager:
+
+<Steps>
+  <Step title="Select the command">
+    Navigate to `.mdcommands` and choose your command file
+  </Step>
+  
+  <Step title="Click Edit">
+    The text editor will show the YAML content
+  </Step>
+  
+  <Step title="Modify actions">
+    Add, remove, or edit actions and their command sequences
+  </Step>
+  
+  <Step title="Save changes">
+    Confirm your edits to update the command file
+  </Step>
+</Steps>
+
+<Warning>
+Ensure proper YAML syntax. Invalid YAML will prevent the command from loading.
+</Warning>
+
+## Deleting Commands
+
+To remove a predefined command:
+
+1. Navigate to `.mdcommands/<command_name>`
+2. Click the **Delete** button
+3. Confirm deletion
+
+The command file will be permanently removed.
+
+## Command Execution Flow
+
+When you execute a predefined command action:
+
+<Steps>
+  <Step title="Action selected">
+    You choose an action from the dropdown (e.g., "Reset")
+  </Step>
+  
+  <Step title="Commands queued">
+    McDis-RCON reads the list of commands for that action
+  </Step>
+  
+  <Step title="Sequential execution">
+    Each command is sent to the server console in order:
+    
+    ```python
+    for command in action_commands:
+        process.execute(command)
+    ```
+  </Step>
+  
+  <Step title="Console output">
+    Server responses appear in the process console thread
+  </Step>
+</Steps>
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Server Maintenance" icon="screwdriver-wrench">
+    Backup sequences, restart warnings, lag clearing
+  </Card>
+  <Card title="World Management" icon="globe">
+    World borders, time/weather control, spawn settings
+  </Card>
+  <Card title="Player Management" icon="users">
+    Permission changes, teleports, inventory management
+  </Card>
+  <Card title="Event Automation" icon="calendar">
+    PVP events, build competitions, mini-games
+  </Card>
+  <Card title="Technical Tasks" icon="gears">
+    Redstone automation, farm controls, mob switches
+  </Card>
+  <Card title="Administration" icon="user-shield">
+    Moderation tools, server configuration, rule enforcement
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+### 1. Use Descriptive Names
+
+```yaml
+# Good
+BackupWarning5Min:
+  - "say Backup in 5 minutes"
+
+# Bad
+BW5:
+  - "say Backup in 5 minutes"
+```
+
+### 2. Add Feedback Messages
+
+```yaml
+ClearMobs:
+  - "kill @e[type=!player]"
+  - "say All mobs have been cleared"  # Feedback to players
+```
+
+### 3. Group Related Actions
+
+```yaml maintenance.yml
+Warning:
+  - "say Maintenance in 5 minutes"
+
+Start:
+  - "save-off"
+  - "save-all"
+
+Complete:
+  - "save-on"
+  - "say Maintenance complete"
+```
+
+### 4. Test Commands First
+
+Before creating predefined commands:
+1. Test each command manually in the console
+2. Verify the syntax is correct
+3. Confirm the expected behavior
+4. Then add to `.mdcommands`
+
+### 5. Document Complex Commands
+
+```yaml
+# Mobswitch Reset: Disables spawning and clears all entities
+Reset:
+  - "gamerule doMobSpawning false"
+  - "kill @e[type=!player]"
+  - "say Mob spawning disabled"
+```
+
+## Troubleshooting
+
+<Accordion title="Command file not appearing">
+  **Problem:** Created a `.yml` file but it doesn't show in the interface
+  
+  **Solutions:**
+  - Ensure the file is in the correct `.mdcommands` folder
+  - Verify the file has a `.yml` extension
+  - Click 🔄 to reload the interface
+  - Check for YAML syntax errors
+</Accordion>
+
+<Accordion title="Commands not executing">
+  **Problem:** Clicking Execute doesn't run the commands
+  
+  **Solutions:**
+  - Verify the server process is running
+  - Check console thread for error messages
+  - Ensure command syntax is correct for your server version
+  - Test commands manually in console first
+</Accordion>
+
+<Accordion title="Invalid YAML error">
+  **Problem:** File editor shows YAML syntax error
+  
+  **Common issues:**
+  - Incorrect indentation (use spaces, not tabs)
+  - Missing colons after action names
+  - Missing hyphens before list items
+  
+  **Correct format:**
+  ```yaml
+  ActionName:
+    - "command 1"
+    - "command 2"
+  ```
+</Accordion>
+
+<Accordion title="Partial command execution">
+  **Problem:** Only some commands in the sequence execute
+  
+  **Possible causes:**
+  - Server lag between commands
+  - Command errors stop the sequence
+  - Permission issues
+  
+  **Solutions:**
+  - Check console for error messages
+  - Verify server has necessary permissions
+  - Add delays if needed (not built-in, may require plugins)
+</Accordion>
+
+## Advanced Tips
+
+### Combining with Plugins
+
+Predefined commands can work alongside plugins:
+
+1. Use commands to trigger server-side events
+2. Plugins detect those events via `listener_events`
+3. Plugins perform additional automation
+
+### Creating Command Libraries
+
+Organize commands by category:
+
+```
+.mdcommands/
+├── mobswitch.yml      ← Mob management
+├── worldborder.yml    ← World borders
+├── permissions.yml    ← Permission management
+├── events.yml         ← Special events
+├── maintenance.yml    ← Routine maintenance
+└── backups.yml        ← Backup procedures
+```
+
+### Version Control
+
+Keep backups of your command files:
+
+1. Download `.yml` files via File Manager
+2. Store in version control (Git)
+3. Restore if accidentally deleted
+
+<Tip>
+Share command files between servers by downloading and re-uploading via the File Manager.
+</Tip>
+
+## Real-World Example: Aeternum SMP
+
+On servers like Aeternum SMP, predefined commands automate complex tasks:
+
+- **MobSwitch**: Toggle mob spawning for technical work
+- **Backup Sequences**: Coordinated save commands
+- **Event Triggers**: Start/stop PVP events, competitions
+
+![Aeternum MobSwitch](https://i.imgur.com/5KCcmi2.png)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="File Manager" href="/guides/file-manager" icon="folder">
+    Learn more about managing files in McDis-RCON
+  </Card>
+  <Card title="Creating Plugins" href="/guides/creating-plugins" icon="code">
+    Extend functionality beyond predefined commands
+  </Card>
+</CardGroup>

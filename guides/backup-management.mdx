@@ -1,0 +1,288 @@
+---
+title: Backup Management
+description: Create and manage server backups with McDis-RCON's automated backup system
+icon: floppy-disk
+---
+
+McDis-RCON provides an automated backup system to protect your server data. Backups are stored as compressed ZIP files and managed with configurable retention limits.
+
+## Backup Configuration
+
+The number of backups retained is configured in `md_config.yml`:
+
+```yaml md_config.yml
+Backups: 3  # Keep the 3 most recent backups
+```
+
+<Info>
+The `Backups` value must be an integer between 1 and 5. Older backups are automatically deleted when the limit is reached.
+</Info>
+
+## Backup Storage Location
+
+Backups are stored in the `.mdbackups` folder with process-specific subdirectories:
+
+```
+McDis/
+├── .mdbackups/
+│   ├── server 1/
+│   │   ├── server 1 1.zip  (newest)
+│   │   ├── server 1 2.zip
+│   │   └── server 1 3.zip  (oldest)
+│   ├── server 2/
+│   └── network 1/
+```
+
+## Creating Backups
+
+<Steps>
+  <Step title="Open File Manager">
+    Click the **Files** button in the Discord panel
+  </Step>
+  
+  <Step title="Navigate to .mdbackups">
+    Use the dropdown to select `McDis/.mdbackups`
+  </Step>
+  
+  <Step title="Choose process folder">
+    Select the folder for the process you want to back up
+    
+    ![Backups Interface](https://i.imgur.com/seit7kJ.png)
+  </Step>
+  
+  <Step title="Create backup">
+    Select "Create new backup" from the dropdown menu
+  </Step>
+  
+  <Step title="Stop the process">
+    McDis-RCON will prompt you to stop the process before creating the backup
+    
+    <Warning>
+    The process must be stopped to ensure data consistency during backup creation.
+    </Warning>
+  </Step>
+  
+  <Step title="Wait for completion">
+    The backup will be created and numbered automatically
+  </Step>
+</Steps>
+
+## Backup Interface
+
+When viewing a process's backup folder, you'll see:
+
+<CardGroup cols={2}>
+  <Card title="⬅️ Back" icon="arrow-left">
+    Return to the `.mdbackups` folder
+  </Card>
+  <Card title="🔄 Reload" icon="rotate">
+    Refresh the backup list
+  </Card>
+  <Card title="📦 Files" icon="box">
+    View the raw file interface for manual operations
+  </Card>
+  <Card title="Dropdown" icon="list">
+    Lists existing backups and "Create new backup" option
+  </Card>
+</CardGroup>
+
+## Automatic Backup Rotation
+
+McDis-RCON automatically manages backup rotation:
+
+<Steps>
+  <Step title="Create new backup">
+    When creating a backup, all existing backups are renumbered:
+    - `server 1 1.zip` → `server 1 2.zip`
+    - `server 1 2.zip` → `server 1 3.zip`
+    - New backup becomes `server 1 1.zip`
+  </Step>
+  
+  <Step title="Delete old backups">
+    If the number of backups exceeds your configured limit, the oldest backup is automatically deleted
+  </Step>
+  
+  <Step title="Add timestamp">
+    Each backup includes a `backup_log.txt` file with creation timestamp:
+    
+    ```txt
+    Backup created on: 2025-03-13 14:30:22
+    ```
+  </Step>
+</Steps>
+
+<Note>
+Backup numbering is based on creation time, with 1 being the most recent.
+</Note>
+
+## Restoring from Backup
+
+To restore a server from backup:
+
+<Steps>
+  <Step title="Download the backup">
+    Navigate to `.mdbackups/<process>/` and request the desired backup file
+    
+    <Info>
+    Use Flask integration for backups larger than 5MB.
+    </Info>
+  </Step>
+  
+  <Step title="Stop the process">
+    Ensure the process is completely stopped:
+    
+    ```bash
+    !!stop SMP
+    ```
+  </Step>
+  
+  <Step title="Clear process folder">
+    Manually delete the contents of the process folder or use the Terminal
+  </Step>
+  
+  <Step title="Extract backup">
+    Upload and extract the backup ZIP file to the process folder
+  </Step>
+  
+  <Step title="Restart process">
+    Start the process to load the restored data:
+    
+    ```bash
+    !!start SMP
+    ```
+  </Step>
+</Steps>
+
+## What Gets Backed Up
+
+Backups include the entire process folder:
+
+```
+McDis/server 1/
+├── world/              ✓ Included
+├── plugins/            ✓ Included
+├── server.jar          ✓ Included
+├── server.properties   ✓ Included
+├── .mdplugins/         ✓ Included
+├── .mdcommands/        ✓ Included
+└── logs/               ✓ Included
+```
+
+<Warning>
+Backups can be large (several GB for worlds with extensive exploration). Ensure you have sufficient disk space.
+</Warning>
+
+## Backup Best Practices
+
+### Regular Backup Schedule
+
+Create backups at regular intervals:
+
+- **Before updates**: Back up before updating server software or plugins
+- **After major builds**: Protect player creations
+- **Before configuration changes**: Ensure you can rollback if needed
+
+### Off-site Storage
+
+For critical servers:
+
+1. Download backups regularly
+2. Store copies on external drives or cloud storage
+3. Test restore procedures periodically
+
+### Backup Before Risky Operations
+
+```bash
+# Example workflow
+!!stop SMP           # Stop the server
+# Create backup via Discord interface
+# Make risky changes (world edit, config updates, etc.)
+!!start SMP          # Restart with changes
+# If issues occur, restore from backup
+```
+
+## Monitoring Backup Status
+
+### Check Backup Count
+
+Navigate to `.mdbackups/<process>/` to see how many backups exist:
+
+- If you have fewer backups than your limit, you have room for more
+- If at the limit, the next backup will delete the oldest
+
+### Backup Timestamps
+
+Each backup includes a timestamp in `backup_log.txt` after extraction:
+
+```bash
+# Extract backup and check timestamp
+unzip "server 1 1.zip"
+cat backup_log.txt
+```
+
+## Troubleshooting
+
+<Accordion title="Backup creation fails">
+  **Possible causes:**
+  - Process is still running → Stop the process first
+  - Insufficient disk space → Free up space
+  - File permission issues → Check folder permissions
+  
+  **Solution:**
+  ```bash
+  !!stop SMP
+  # Wait for process to fully stop
+  # Try backup creation again
+  ```
+</Accordion>
+
+<Accordion title="Cannot download large backups">
+  **Problem:** Backup exceeds Discord's 5MB limit
+  
+  **Solution:** Enable Flask integration:
+  1. Configure Flask in `md_config.yml`
+  2. Request the backup file
+  3. Use the generated download link
+  
+  See [Flask Integration](/guides/flask-integration) for details.
+</Accordion>
+
+<Accordion title="Backup restore not working">
+  **Checklist:**
+  1. Process must be stopped during restore
+  2. Clear old files before extracting backup
+  3. Ensure all files extracted to correct location
+  4. Remove `backup_log.txt` after restoration (optional)
+  5. Verify folder structure matches original
+</Accordion>
+
+<Tip>
+Combine backups with version control for configuration files (`.yml`, `.json`) to track changes over time.
+</Tip>
+
+## Example Backup Workflow
+
+Here's a complete workflow for managing backups:
+
+```bash
+# 1. Pre-update backup
+!!stop SMP
+# Create backup via Discord Files → .mdbackups → SMP → Create new backup
+
+# 2. Update server software
+# Upload new server.jar via File Manager
+
+# 3. Test the update
+!!start SMP
+# Monitor console for errors
+
+# 4. If successful, keep new backup
+# If issues occur, restore from backup:
+!!stop SMP
+# Extract "SMP 1.zip" to process folder
+!!start SMP
+```
+
+<Info>
+Automatic backup rotation ensures you always have recent backups without manual cleanup.
+</Info>

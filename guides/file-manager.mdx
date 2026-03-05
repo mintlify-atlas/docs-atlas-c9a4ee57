@@ -1,0 +1,235 @@
+---
+title: File Manager
+description: Navigate and manage files in your McDis folder using the Discord file manager interface
+icon: folder-open
+---
+
+McDis-RCON includes a powerful file manager accessible directly from Discord, allowing you to navigate, upload, download, edit, and manage files within your McDis folder.
+
+## Accessing the File Manager
+
+<Steps>
+  <Step title="Open the panel">
+    Navigate to your Discord panel channel where McDis-RCON is active
+  </Step>
+  
+  <Step title="Click the Files button">
+    Press the **Files** button in the main panel interface
+  </Step>
+  
+  <Step title="Navigate folders">
+    Use the dropdown menu to select folders and files
+  </Step>
+</Steps>
+
+![File Manager Interface](https://i.imgur.com/PcJ5afz.png)
+
+## Interface Controls
+
+### Navigation Buttons
+
+<CardGroup cols={2}>
+  <Card title="⬅️ Back" icon="arrow-left">
+    Returns to the previous folder in the directory hierarchy
+  </Card>
+  <Card title="🔄 Reload" icon="rotate">
+    Refreshes the current directory view
+  </Card>
+  <Card title="📌 Pin Path" icon="thumbtack">
+    Allows you to enter a specific McDis path directly
+  </Card>
+  <Card title="Terminal" icon="terminal">
+    Opens the advanced terminal interface for file operations
+  </Card>
+</CardGroup>
+
+### Folder Dropdown
+
+- Displays the first 25 items in the current folder
+- Shows both files and subdirectories
+- Click an item to navigate into folders or view file details
+
+<Warning>
+In folders with more than 25 files, use the Terminal interface for complete access.
+</Warning>
+
+## Working with Files
+
+When you select a file, the interface displays file-specific actions:
+
+![File Actions](https://i.imgur.com/5tPw9DQ.png)
+
+### File Actions
+
+<Accordion title="Request - Download files">
+  Downloads the selected file to your local machine.
+  
+  **Limitations:**
+  - Discord limits file uploads to 5MB
+  - For larger files, use Flask integration (see Flask Integration guide)
+  
+  **Process:**
+  1. Click the **Request** button
+  2. If file is under 5MB, it's sent directly in Discord
+  3. If file exceeds 5MB and Flask is enabled, a download link is generated
+</Accordion>
+
+<Accordion title="Edit - Rename files">
+  Renames the selected file.
+  
+  **Steps:**
+  1. Click the **Edit** button
+  2. Enter the new filename in the modal
+  3. Confirm the change
+  
+  <Note>
+  You cannot rename files to names that already exist in the directory.
+  </Note>
+</Accordion>
+
+<Accordion title="Delete - Remove files">
+  Permanently deletes the selected file.
+  
+  <Warning>
+  File deletion is permanent and cannot be undone. Use with caution.
+  </Warning>
+</Accordion>
+
+## Text File Editor
+
+McDis-RCON provides a built-in text editor for small text files:
+
+![Text File Preview](https://i.imgur.com/dSeIQg7.png)
+
+### Text Preview Features
+
+- **Preview**: Displays up to 1024 characters of the file content
+- **Edit Mode**: Available for files under 4000 characters
+- **Syntax Support**: Works with `.txt`, `.yml`, `.json`, `.properties`, `.log`, etc.
+
+### Editing Text Files
+
+<Steps>
+  <Step title="Select a text file">
+    Navigate to and select a text file (under 4000 characters)
+  </Step>
+  
+  <Step title="Click Edit">
+    The interface will show an editable text field with current content
+  </Step>
+  
+  <Step title="Make changes">
+    Modify the text content as needed
+  </Step>
+  
+  <Step title="Save">
+    Confirm your changes to write the new content to the file
+  </Step>
+</Steps>
+
+![Text File Editor](https://i.imgur.com/ZV1NlQx.png)
+
+<Tip>
+Use the text editor for quick configuration changes without downloading/uploading files.
+</Tip>
+
+## Pin Path Feature
+
+The Pin Path feature allows direct navigation to specific directories:
+
+```
+McDis/server 1/plugins
+McDis/.mdbackups/SMP
+McDis/network 1/config
+```
+
+<Steps>
+  <Step title="Click 📌">
+    Press the Pin Path button
+  </Step>
+  
+  <Step title="Enter path">
+    Type the full McDis path (e.g., `McDis/server 1/world`)
+  </Step>
+  
+  <Step title="Navigate">
+    The file manager jumps directly to that location
+  </Step>
+</Steps>
+
+<Info>
+All paths must start with `McDis/` and exist within your McDis folder.
+</Info>
+
+## Terminal Interface
+
+For advanced file operations, use the integrated terminal:
+
+![Terminal](https://i.imgur.com/xgPt5hs.png)
+
+### Terminal Capabilities
+
+- Navigate between folders
+- Edit files
+- Rename files and folders
+- Copy and move files
+- Create new directories
+- Delete files and folders
+- Compress folders into archives
+
+<Note>
+All terminal operations are restricted to the McDis folder for security.
+</Note>
+
+### Common Terminal Operations
+
+```bash
+# Navigate to a folder
+cd server 1/plugins
+
+# List files
+ls
+
+# Create a directory
+mkdir new_folder
+
+# Copy a file
+cp source.jar destination.jar
+
+# Move/rename
+mv old_name.txt new_name.txt
+
+# Remove a file
+rm unwanted_file.log
+
+# Compress a folder
+zip -r backup.zip world/
+```
+
+## Use Cases
+
+### Uploading Plugin Files
+
+1. Navigate to `McDis/server 1/plugins`
+2. Use the Uploader tool (see Tools guide)
+3. Upload your plugin `.jar` files
+4. Restart the server to load new plugins
+
+### Editing Server Properties
+
+1. Navigate to your server folder
+2. Select `server.properties`
+3. Click Edit (if under 4000 characters)
+4. Make configuration changes
+5. Save and restart the server
+
+### Downloading World Files
+
+1. Navigate to your server's world folder
+2. Use Terminal to compress: `zip -r world.zip world/`
+3. Request the `.zip` file
+4. If over 5MB, use Flask for download link
+
+<Tip>
+Combine the File Manager with the Backup system for comprehensive server file management.
+</Tip>

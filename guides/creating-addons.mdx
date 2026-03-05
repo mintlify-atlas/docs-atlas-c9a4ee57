@@ -1,0 +1,670 @@
+---
+title: Creating Addons
+description: Step-by-step guide to creating custom mdaddons with practical examples
+icon: code
+---
+
+This guide walks you through creating custom mdaddons for McDis-RCON, from basic Discord integration to advanced automation.
+
+## Addon Template
+
+Every addon starts with this basic structure:
+
+```python addon_template.py
+from mcdis_rcon.classes import McDisClient
+import discord
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        """Called when addon is loaded"""
+        self.client = client
+        # Initialize your variables here
+
+    async def on_message(self, message: discord.Message):
+        """Called for every Discord message"""
+        # React to Discord messages
+        pass
+
+    async def on_ready(self):
+        """Called when bot connects to Discord"""
+        # Initialization after Discord connection
+        pass
+
+    def unload(self):
+        """Called when addon is unloaded (optional)"""
+        # Cleanup code here
+        pass
+```
+
+<Info>
+Save your addon as a `.py` file in `McDis/.mdaddons/` and reload with `!!adreload`.
+</Info>
+
+## Example 1: Panel Message Reactor
+
+Let's create an addon that reacts to all messages in the panel channel:
+
+```python reactor.py
+import discord
+from mcdis_rcon.classes import McDisClient
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    async def on_message(self, message: discord.Message):
+        """Add a reaction to panel messages"""
+        if message.author.bot:
+            return  # Ignore messages from bots
+
+        if message.channel.id == self.client.panel.id:
+            await message.add_reaction('✅')
+```
+
+**How it works:**
+1. `on_message` is called for every Discord message (no `listener_` prefix for addons)
+2. Check if the author is a bot to avoid reaction loops
+3. Verify the message is in the panel channel
+4. Add a checkmark reaction
+
+### Testing the Addon
+
+<Steps>
+  <Step title="Save the file">
+    Place `reactor.py` in `McDis/.mdaddons/`
+  </Step>
+  
+  <Step title="Load the addon">
+    ```bash
+    !!adreload
+    ```
+  </Step>
+  
+  <Step title="Test it">
+    Send a message in the panel channel and watch for the ✅ reaction
+  </Step>
+</Steps>
+
+<Note>
+This addon works even when no servers are running, unlike plugins which are tied to process lifecycle.
+</Note>
+
+## Example 2: Server Status Command
+
+Create a custom command to check server status:
+
+```python status_command.py
+import discord
+from mcdis_rcon.classes import McDisClient
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    async def on_message(self, message: discord.Message):
+        """Custom !status command"""
+        if message.author.bot:
+            return
+
+        if message.content.lower() == "!status":
+            # Build status message
+            running = []
+            stopped = []
+            
+            for process in self.client.processes:
+                if process.is_running():
+                    running.append(process.name)
+                else:
+                    stopped.append(process.name)
+            
+            # Format response
+            status_msg = "**Server Status:**\n"
+            status_msg += f"🟢 Running: {', '.join(running) if running else 'None'}\n"
+            status_msg += f"🔴 Stopped: {', '.join(stopped) if stopped else 'None'}"
+            
+            await message.channel.send(status_msg)
+```
+
+**Key features:**
+- Responds to `!status` command
+- Checks all processes (servers and networks)
+- Formats a clean status message
+
+## Example 3: Auto-Announcement System
+
+Send periodic announcements to the panel:
+
+```python announcer.py
+import discord
+import asyncio
+from mcdis_rcon.classes import McDisClient
+from datetime import datetime
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.announcement_task = None
+
+    async def on_ready(self):
+        """Start announcement loop when bot is ready"""
+        self.announcement_task = asyncio.create_task(self.announce_loop())
+
+    async def announce_loop(self):
+        """Send announcements every 6 hours"""
+        while True:
+            await asyncio.sleep(21600)  # 6 hours
+            
+            running_servers = [p.name for p in self.client.processes if p.is_running()]
+            if running_servers:
+                msg = f"📢 **Server Status Update**\n"
+                msg += f"Currently running: {', '.join(running_servers)}\n"
+                msg += f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                
+                await self.client.panel.send(msg)
+
+    def unload(self):
+        """Cancel announcement task on unload"""
+        if self.announcement_task:
+            self.announcement_task.cancel()
+```
+
+<Warning>
+Always cancel background tasks in the `unload()` method to prevent resource leaks.
+</Warning>
+
+## Example 4: Process Monitor
+
+Monitor and alert when servers stop unexpectedly:
+
+```python process_monitor.py
+import discord
+import asyncio
+from mcdis_rcon.classes import McDisClient
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.process_states = {}
+        self.monitor_task = None
+
+    async def on_ready(self):
+        """Start monitoring when bot is ready"""
+        # Initialize process states
+        for process in self.client.processes:
+            self.process_states[process.name] = process.is_running()
+        
+        self.monitor_task = asyncio.create_task(self.monitor_loop())
+
+    async def monitor_loop(self):
+        """Check process status every 30 seconds"""
+        while True:
+            await asyncio.sleep(30)
+            
+            for process in self.client.processes:
+                current_state = process.is_running()
+                previous_state = self.process_states.get(process.name, False)
+                
+                # Detect state change
+                if current_state != previous_state:
+                    if current_state:
+                        msg = f"🟢 **{process.name}** has started"
+                    else:
+                        msg = f"🔴 **{process.name}** has stopped"
+                    
+                    await self.client.panel.send(msg)
+                    self.process_states[process.name] = current_state
+
+    def unload(self):
+        """Cancel monitoring task on unload"""
+        if self.monitor_task:
+            self.monitor_task.cancel()
+```
+
+## Example 5: Discord Role Integration
+
+Grant roles based on custom commands:
+
+```python role_manager.py
+import discord
+from mcdis_rcon.classes import McDisClient
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.admin_role_id = 1234567890  # Replace with your admin role ID
+
+    async def on_message(self, message: discord.Message):
+        """Handle role commands"""
+        if message.author.bot:
+            return
+
+        # Check if user has admin role
+        if not any(role.id == self.admin_role_id for role in message.author.roles):
+            return
+
+        # Grant server-admin role
+        if message.content.startswith("!grant"):
+            # Parse command: !grant @user role_name
+            parts = message.content.split()
+            if len(parts) >= 3 and message.mentions:
+                target_user = message.mentions[0]
+                role_name = " ".join(parts[2:])
+                
+                # Find role
+                role = discord.utils.get(message.guild.roles, name=role_name)
+                if role:
+                    await target_user.add_roles(role)
+                    await message.channel.send(f"✅ Granted {role_name} to {target_user.mention}")
+                else:
+                    await message.channel.send(f"❌ Role '{role_name}' not found")
+```
+
+<Tip>
+Replace `admin_role_id` with your actual Discord role ID for permission checking.
+</Tip>
+
+## Example 6: External API Integration
+
+Integrate with external APIs:
+
+```python minecraft_status.py
+import discord
+import aiohttp
+from mcdis_rcon.classes import McDisClient
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.session = None
+
+    async def on_ready(self):
+        """Initialize HTTP session"""
+        self.session = aiohttp.ClientSession()
+
+    async def on_message(self, message: discord.Message):
+        """Check Minecraft server status via API"""
+        if message.author.bot:
+            return
+
+        if message.content.startswith("!mcstatus"):
+            parts = message.content.split()
+            if len(parts) < 2:
+                await message.channel.send("Usage: !mcstatus <server_ip>")
+                return
+
+            server_ip = parts[1]
+            
+            try:
+                # Query Minecraft server status API
+                url = f"https://api.mcsrvstat.us/2/{server_ip}"
+                async with self.session.get(url) as response:
+                    data = await response.json()
+                    
+                    if data.get('online'):
+                        players = data.get('players', {})
+                        status_msg = f"🟢 **{server_ip}** is online\n"
+                        status_msg += f"Players: {players.get('online', 0)}/{players.get('max', 0)}\n"
+                        status_msg += f"Version: {data.get('version', 'Unknown')}"
+                    else:
+                        status_msg = f"🔴 **{server_ip}** is offline"
+                    
+                    await message.channel.send(status_msg)
+            except Exception as e:
+                await message.channel.send(f"❌ Error checking status: {str(e)}")
+
+    def unload(self):
+        """Close HTTP session on unload"""
+        if self.session:
+            asyncio.create_task(self.session.close())
+```
+
+## Example 7: Backup Reminder
+
+Remind admins to create backups:
+
+```python backup_reminder.py
+import discord
+import asyncio
+from mcdis_rcon.classes import McDisClient
+from datetime import datetime, timedelta
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.reminder_task = None
+        self.admin_role_id = 1234567890  # Replace with your admin role ID
+
+    async def on_ready(self):
+        """Start reminder loop"""
+        self.reminder_task = asyncio.create_task(self.reminder_loop())
+
+    async def reminder_loop(self):
+        """Send backup reminders every 24 hours"""
+        while True:
+            await asyncio.sleep(86400)  # 24 hours
+            
+            # Check running servers
+            running_servers = [p.name for p in self.client.processes if p.is_running()]
+            
+            if running_servers:
+                msg = f"⏰ **Backup Reminder**\n"
+                msg += f"Running servers: {', '.join(running_servers)}\n"
+                msg += f"Consider creating backups via the File Manager.\n"
+                msg += f"<@&{self.admin_role_id}>"
+                
+                await self.client.panel.send(msg)
+
+    def unload(self):
+        """Cancel reminder task"""
+        if self.reminder_task:
+            self.reminder_task.cancel()
+```
+
+## Advanced: Folder-Based Addon
+
+For complex addons, use the folder structure:
+
+### Folder Structure
+
+```
+McDis/.mdaddons/
+└── advanced_bot/
+    ├── __init__.py      ← Main addon class
+    ├── commands.py      ← Command handlers
+    ├── events.py        ← Event handlers
+    ├── utils.py         ← Helper functions
+    └── config.json      ← Configuration
+```
+
+### __init__.py
+
+```python __init__.py
+from mcdis_rcon.classes import McDisClient
+import discord
+from .commands import CommandHandler
+from .events import EventHandler
+import json
+import os
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        
+        # Load configuration
+        config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+        with open(config_path, 'r') as f:
+            self.config = json.load(f)
+        
+        # Initialize handlers
+        self.commands = CommandHandler(client, self.config)
+        self.events = EventHandler(client, self.config)
+
+    async def on_message(self, message: discord.Message):
+        """Delegate to command handler"""
+        await self.commands.handle(message)
+
+    async def on_member_join(self, member: discord.Member):
+        """Delegate to event handler"""
+        await self.events.on_join(member)
+
+    def unload(self):
+        """Cleanup"""
+        self.commands.cleanup()
+        self.events.cleanup()
+```
+
+### commands.py
+
+```python commands.py
+import discord
+from mcdis_rcon.classes import McDisClient
+
+class CommandHandler:
+    def __init__(self, client: McDisClient, config: dict):
+        self.client = client
+        self.config = config
+
+    async def handle(self, message: discord.Message):
+        """Route commands"""
+        if message.author.bot:
+            return
+
+        if message.content == "!ping":
+            await self.ping(message)
+        elif message.content.startswith("!servers"):
+            await self.servers(message)
+
+    async def ping(self, message: discord.Message):
+        """Ping command"""
+        await message.channel.send("🏓 Pong!")
+
+    async def servers(self, message: discord.Message):
+        """List servers command"""
+        server_list = [p.name for p in self.client.processes]
+        await message.channel.send(f"Servers: {', '.join(server_list)}")
+
+    def cleanup(self):
+        """Cleanup command handler"""
+        pass
+```
+
+### events.py
+
+```python events.py
+import discord
+from mcdis_rcon.classes import McDisClient
+
+class EventHandler:
+    def __init__(self, client: McDisClient, config: dict):
+        self.client = client
+        self.config = config
+
+    async def on_join(self, member: discord.Member):
+        """Handle member joins"""
+        welcome_channel_id = self.config.get('welcome_channel_id')
+        if welcome_channel_id:
+            channel = self.client.get_channel(welcome_channel_id)
+            if channel:
+                await channel.send(f"Welcome {member.mention} to the server!")
+
+    def cleanup(self):
+        """Cleanup event handler"""
+        pass
+```
+
+### config.json
+
+```json config.json
+{
+  "welcome_channel_id": 1234567890,
+  "admin_role_id": 9876543210,
+  "announcement_interval": 21600
+}
+```
+
+## Testing Addons
+
+<Steps>
+  <Step title="Create the addon">
+    Write your addon file(s) in `.mdaddons/`
+  </Step>
+  
+  <Step title="Load the addon">
+    ```bash
+    !!adreload
+    ```
+    
+    Check the terminal for loading confirmation:
+    ```
+    ✔ Reloading mdaddons...
+    ```
+  </Step>
+  
+  <Step title="Test functionality">
+    Trigger the Discord events your addon listens for
+  </Step>
+  
+  <Step title="Check for errors">
+    Monitor the Error Reports thread for any addon errors
+  </Step>
+  
+  <Step title="Iterate">
+    Make changes and reload:
+    ```bash
+    !!adreload
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+Use `print()` statements during development. Output appears in the McDis-RCON terminal.
+</Tip>
+
+## Common Patterns
+
+### Pattern: Command Prefix
+
+```python
+COMMAND_PREFIX = "!"
+
+async def on_message(self, message: discord.Message):
+    if not message.content.startswith(COMMAND_PREFIX):
+        return
+    
+    command = message.content[len(COMMAND_PREFIX):].split()[0]
+    
+    if command == "help":
+        await self.show_help(message)
+```
+
+### Pattern: Permission Checking
+
+```python
+def has_permission(self, member: discord.Member) -> bool:
+    """Check if member has admin role"""
+    admin_role_id = 1234567890
+    return any(role.id == admin_role_id for role in member.roles)
+
+async def on_message(self, message: discord.Message):
+    if message.content == "!admin":
+        if self.has_permission(message.author):
+            await message.channel.send("Admin command executed")
+        else:
+            await message.channel.send("❌ Insufficient permissions")
+```
+
+### Pattern: Cooldown System
+
+```python
+from datetime import datetime, timedelta
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.cooldowns = {}  # user_id -> last_use_time
+
+    def check_cooldown(self, user_id: int, seconds: int) -> bool:
+        """Check if user is on cooldown"""
+        now = datetime.now()
+        last_use = self.cooldowns.get(user_id)
+        
+        if last_use is None or now - last_use > timedelta(seconds=seconds):
+            self.cooldowns[user_id] = now
+            return True
+        return False
+
+    async def on_message(self, message: discord.Message):
+        if message.content == "!limited":
+            if self.check_cooldown(message.author.id, 60):
+                await message.channel.send("Command executed!")
+            else:
+                await message.channel.send("⏳ Please wait before using this command again")
+```
+
+## Best Practices
+
+### 1. Error Handling
+
+```python
+async def on_message(self, message: discord.Message):
+    try:
+        # Your code
+        pass
+    except Exception as e:
+        await self.client.error_report(
+            title="Addon Error",
+            error=str(e)
+        )
+```
+
+### 2. Resource Cleanup
+
+```python
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.tasks = []
+
+    async def on_ready(self):
+        task = asyncio.create_task(self.background_work())
+        self.tasks.append(task)
+
+    def unload(self):
+        for task in self.tasks:
+            task.cancel()
+```
+
+### 3. Configuration Files
+
+```python
+import json
+import os
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.config = self.load_config()
+
+    def load_config(self):
+        config_path = os.path.join(self.client.cwd, '.mdaddons', 'myconfig.json')
+        if os.path.exists(config_path):
+            with open(config_path, 'r') as f:
+                return json.load(f)
+        return {}  # Default config
+```
+
+## Debugging Tips
+
+1. **Use print statements**:
+   ```python
+   print(f"Addon loaded: {self.__class__.__name__}")
+   ```
+
+2. **Log important events**:
+   ```python
+   async def on_message(self, message: discord.Message):
+       print(f"Message received: {message.content}")
+   ```
+
+3. **Check error reports**:
+   Monitor the "Error Reports" thread in Discord
+
+4. **Test incrementally**:
+   Add features one at a time and test with `!!adreload`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Addons Overview" href="/guides/addons-overview" icon="book">
+    Review addon concepts and architecture
+  </Card>
+  <Card title="Plugins Overview" href="/guides/plugins-overview" icon="plug">
+    Learn about process-specific plugins
+  </Card>
+  <Card title="Advanced Examples" href="https://github.com/mjpr-3435/AeternumBot" icon="github">
+    See production addon implementations
+  </Card>
+  <Card title="Discord.py Docs" href="https://discordpy.readthedocs.io/" icon="book-open">
+    Explore Discord.py event reference
+  </Card>
+</CardGroup>

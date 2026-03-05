@@ -1,0 +1,312 @@
+---
+title: McDisClient
+description: Main Discord bot client class that orchestrates McDis-RCON
+icon: discord
+---
+
+## Overview
+
+The `McDisClient` class extends `discord.ext.commands.Bot` and serves as the core of McDis-RCON. It manages configuration, processes, plugins, addons, and Discord integration.
+
+## Class Definition
+
+```python
+from mcdis_rcon.classes import McDisClient
+
+class McDisClient(commands.Bot):
+    def __init__(self):
+        super().__init__(blank_space, intents = discord.Intents().all())
+```
+
+## Attributes
+
+<ParamField path="prefix" type="str" default="!!">
+  Command prefix for Discord panel commands
+</ParamField>
+
+<ParamField path="cwd" type="str">
+  Current working directory (from `os.getcwd()`)
+</ParamField>
+
+<ParamField path="config" type="dict">
+  Loaded configuration from `md_config.yml`
+</ParamField>
+
+<ParamField path="panel" type="discord.TextChannel">
+  Discord text channel where the control panel is displayed
+</ParamField>
+
+<ParamField path="_" type="Callable[[str], str]">
+  Translation function for localization (gettext)
+</ParamField>
+
+<ParamField path="path_backups" type="str" default=".mdbackups">
+  Directory for storing server backups
+</ParamField>
+
+<ParamField path="path_addons" type="str" default=".mdaddons">
+  Directory containing global addons
+</ParamField>
+
+<ParamField path="addons" type="dict">
+  Dictionary of loaded addon instances
+</ParamField>
+
+<ParamField path="flask" type="FlaskManager">
+  Flask web server instance (if enabled)
+</ParamField>
+
+<ParamField path="processes" type="list[Union[Network, Server]]">
+  All managed processes (servers and networks)
+</ParamField>
+
+<ParamField path="networks" type="list[Network]">
+  Network processes only (Velocity, Waterfall, etc.)
+</ParamField>
+
+<ParamField path="servers" type="list[Server]">
+  Server processes only (Vanilla, Paper, Fabric, etc.)
+</ParamField>
+
+<ParamField path="uploader" type="Uploader">
+  File upload manager instance
+</ParamField>
+
+<ParamField path="files_manager" type="FilesManager">
+  File management system instance
+</ParamField>
+
+<ParamField path="is_running" type="bool" default="False">
+  Flag indicating if McDis-RCON has completed initialization
+</ParamField>
+
+<ParamField path="discord_listeners" type="list[str]">
+  List of available Discord event listeners from behaviours directory
+</ParamField>
+
+## Configuration Loading
+
+### _load_config()
+
+```python
+def _load_config(self):
+    try:
+        self.config = read_yml('md_config.yml')
+    except Exception as error:
+        print('The file \'md_config.yml\' could not be opened.')
+        os._exit(0)
+```
+
+Loads and validates `md_config.yml`. Validates:
+- Bot token (string)
+- Panel ID (integer)
+- Language (en or es)
+- Backup count (1-5)
+- Flask configuration
+- Process definitions
+
+## Process Management
+
+### _load_processes()
+
+```python
+async def _load_processes(self):
+    for name in self.config['Processes']['Servers']:
+        server = Server(name, self, self.config['Processes']['Servers'][name])
+        self.processes.append(server)
+        self.servers.append(server)
+
+    for name in self.config['Processes']['Networks']:
+        network = Network(name, self, self.config['Processes']['Networks'][name])
+        self.processes.append(network)
+        self.networks.append(network)
+```
+
+Creates Server and Network objects from configuration.
+
+## Addon Management
+
+### _load_addons(reload=False)
+
+```python
+async def _load_addons(self, *, reload: bool = False):
+    if reload: 
+        self.unload_addons()
+    
+    files_in_addons_dir = os.listdir(self.path_addons)
+    valid_extensions = ['.py', '.mcdis']
+    
+    addons = [file for file in files_in_addons_dir
+              if os.path.splitext(file)[1] in valid_extensions or
+              os.path.exists(os.path.join(self.path_addons, file, '__init__.py'))]
+```
+
+Loads mdaddons from `.mdaddons/` directory. Supports:
+- `.py` files
+- Folder addons with `__init__.py`
+
+### call_addons(function, args)
+
+```python
+async def call_addons(self, function: str, args: tuple = tuple()):
+    for name, addon in self.addons.items():
+        try:
+            func = getattr(addon, function, None)
+            if func:
+                await func(*args)
+        except Exception:
+            await self.error_report(
+                title=f'{function}() of {addon}',
+                error=traceback.format_exc()
+            )
+```
+
+Calls a method on all loaded addons.
+
+## Error Handling
+
+### error_report(title, error)
+
+```python
+async def error_report(self, *, title: str, error: str, should_print: bool = True):
+    error_log = f'- Error Report [{title}]:\n\n{error}'.replace('`',''')
+    mrkd_error = f'```diff\n{truncate(error_log, 1980)}\n```'
+    error_reports = await thread('Error Reports', self.panel)
+    error_report = await error_reports.send(mrkd_error)
+    if should_print: 
+        print(f'\n{error_log}')
+    
+    return error_report.jump_url
+```
+
+Posts error reports to the Discord "Error Reports" thread.
+
+## Discord Events
+
+### on_ready()
+
+```python
+async def on_ready(self):
+    if self.is_running: 
+        return
+    
+    self._load_panel()
+    print(self._('Logged in as {}!').format(self.user))
+    
+    await self._load_processes()
+    await self._load_addons()
+    await self._load_behaviours()
+    
+    self.flask = FlaskManager(self)
+    asyncio.create_task(self._load_banner())
+    
+    self.is_running = True
+    await execute_and_wait(self.console_listener)
+```
+
+Called when the bot successfully connects to Discord.
+
+### panel_interface(message)
+
+```python
+async def panel_interface(self, message: discord.Message):
+    if message.author.bot: 
+        return
+
+    if message.channel.id == self.panel.id:
+        if self.is_command(message.content.lower(), 'start-all'):
+            await message.delete()
+            response = await message.channel.send(
+                self._('✔ Initializing processes.'))
+            await response.delete(delay = 2)
+            
+            for process in self.processes: 
+                process.start()
+```
+
+Handles commands sent in the panel channel.
+
+## Utility Methods
+
+### is_command(message, command, console=False)
+
+```python
+def is_command(self, message: str, command: str, console: bool = False):
+    dummy = message + ' '
+    return dummy.startswith(f'{self.prefix}{command} ') if not console else dummy.startswith(command)
+```
+
+Checks if a message matches a command pattern.
+
+### is_valid_mcdis_path(path, check_if_file=False, check_if_dir=False)
+
+```python
+def is_valid_mcdis_path(self, path: str, *, check_if_file: bool = False, check_if_dir: bool = False):
+    real_path = un_mcdis_path(path)
+    new_path = os.path.join(self.cwd, real_path)
+    
+    if not path.split(os.sep)[0] == 'McDis':
+        return self._('✖ The path must be a McDis path. E.g.: `McDis/Backups`.')
+    if not new_path.startswith(self.cwd):
+        return self._('✖ You must work within the directory where McDis is running.')
+```
+
+Validates McDis paths and prevents directory traversal.
+
+## Shutdown Handling
+
+### on_stop()
+
+```python
+def on_stop(self):
+    self.unload_addons()
+    
+    if any([process.is_running() for process in self.processes]):
+        print(self._('Closing processes...'))
+        
+        for process in self.processes:
+            process.stop(omit_task=True)
+        
+        # Wait up to 60 seconds
+        i = 60
+        while i > 0 and any([process.is_running() for process in self.processes]):
+            i -= 1
+            time.sleep(1)
+        
+        # Force kill if needed
+        if any([process.is_running() for process in self.processes]):
+            for process in self.processes:
+                process.kill(omit_task=True)
+    
+    os._exit(0)
+```
+
+Gracefully shuts down all processes before exiting.
+
+## Usage Example
+
+```python
+from mcdis_rcon.classes import McDisClient
+
+# Accessing the client in a plugin
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+        self.client = process.client  # McDisClient instance
+        
+        # Access client features
+        print(f"Panel ID: {self.client.panel.id}")
+        print(f"Config: {self.client.config}")
+        print(f"Processes: {len(self.client.processes)}")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Process Class" href="/api/classes/process" icon="server">
+    Learn about process management
+  </Card>
+  <Card title="Creating Addons" href="/guides/creating-addons" icon="code">
+    Build custom addons
+  </Card>
+</CardGroup>

@@ -1,122 +1,136 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "McDis-RCON",
+  "theme": "aspen",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#94cb04",
+    "light": "#545454",
+    "dark": "#94cb04"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "/logo.png",
+  "logo": {
+    "light": "/logo.png",
+    "dark": "/logo.png"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/mjpr-3435/McDis-RCON"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/mjpr-3435/McDis-RCON",
+      "discord": "https://discord.gg/xB9N38HBJY"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "installation"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Core Features",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "features/overview",
+              "features/process-control",
+              "features/console-relay",
+              "features/file-manager",
+              "features/backup-system",
+              "features/discord-panel"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Configuration",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
-            ]
-          },
-          {
-            "group": "AI tools",
-            "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "configuration/overview",
+              "configuration/discord-setup",
+              "configuration/process-setup",
+              "configuration/advanced"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "Guides",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Panel Management",
             "pages": [
-              "api-reference/introduction"
+              "guides/panel-commands",
+              "guides/file-manager",
+              "guides/backup-management",
+              "guides/process-manager",
+              "guides/tools"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Extending McDis-RCON",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "guides/plugins-overview",
+              "guides/creating-plugins",
+              "guides/addons-overview",
+              "guides/creating-addons",
+              "guides/predefined-commands"
+            ]
+          },
+          {
+            "group": "Advanced Usage",
+            "pages": [
+              "guides/multiple-servers",
+              "guides/flask-integration",
+              "guides/troubleshooting"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "CLI Commands",
+            "pages": [
+              "api/cli/init",
+              "api/cli/run",
+              "api/cli/console-commands"
+            ]
+          },
+          {
+            "group": "Core Classes",
+            "pages": [
+              "api/classes/mcdisclient",
+              "api/classes/process",
+              "api/classes/server",
+              "api/classes/network"
+            ]
+          },
+          {
+            "group": "Plugin & Addon API",
+            "pages": [
+              "api/plugins/mdplugin",
+              "api/plugins/events",
+              "api/addons/mdaddon",
+              "api/addons/events"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "api/utils/files",
+              "api/utils/discord",
+              "api/utils/minecraft"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

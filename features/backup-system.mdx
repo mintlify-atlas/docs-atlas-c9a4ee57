@@ -1,0 +1,564 @@
+---
+title: Backup System
+description: Automated backup creation and restoration for Minecraft servers
+---
+
+McDis-RCON includes a comprehensive backup system that allows you to create and restore complete server backups directly through Discord, ensuring your server data is always protected.
+
+## Overview
+
+The backup system creates compressed ZIP archives of your entire server directory, making it easy to:
+
+- Protect against data loss
+- Roll back after failed updates
+- Test changes safely
+- Migrate servers
+- Maintain version history
+
+<img src="https://i.imgur.com/seit7kJ.png" alt="Backup Management Interface" />
+
+## Configuration
+
+Configure backup retention in `md_config.yml`:
+
+```yaml
+### Description   : Number of backups that McDis will save.
+### Valid Values  : [1, 5] (inclusive)
+### Default Value : 3
+Backups: 3
+```
+
+This setting controls how many backup versions are kept per process.
+
+<Info>
+  When you create a new backup and reach the limit, the oldest backup is automatically deleted to make room.
+</Info>
+
+## Backup Storage Structure
+
+Backups are stored in the `.mdbackups` directory:
+
+```
+McDis/
+└── .mdbackups/
+    ├── my_server/
+    │   ├── my_server 1.zip  (newest)
+    │   ├── my_server 2.zip
+    │   └── my_server 3.zip  (oldest)
+    ├── creative_server/
+    │   ├── creative_server 1.zip
+    │   └── creative_server 2.zip
+    └── velocity_proxy/
+        └── velocity_proxy 1.zip
+```
+
+Each process has its own subfolder in `.mdbackups`.
+
+## Creating Backups
+
+<Steps>
+  <Step title="Access File Manager">
+    Click the **Files** button in the Discord panel.
+  </Step>
+  
+  <Step title="Navigate to Backups">
+    Use the dropdown to navigate to:
+    ```
+    McDis → .mdbackups → <your_server_name>
+    ```
+  </Step>
+  
+  <Step title="Ensure Server is Stopped">
+    The backup system **requires the process to be stopped** before creating a backup.
+    
+    If the server is running, you'll see:
+    ```
+    ✖ The process must be stopped to create a backup.
+    ```
+    
+    Stop your server first:
+    ```
+    !!stop my_server
+    ```
+  </Step>
+  
+  <Step title="Create Backup">
+    Select "Create new backup" from the dropdown.
+  </Step>
+  
+  <Step title="Wait for Completion">
+    McDis will compress the entire server directory. Progress may be shown for large servers.
+    
+    The backup is saved as `<server_name> 1.zip`.
+  </Step>
+</Steps>
+
+<Warning>
+  **Never create backups while the server is running!** This can result in:
+  - Corrupted world files
+  - Incomplete data
+  - Inconsistent state
+  - Unusable backups
+</Warning>
+
+### Backup Process Details
+
+When creating a backup, McDis-RCON:
+
+```python:mcdis_rcon/classes/Process.py
+def make_bkp(self, *, counter: list = None):
+    if self.is_running(): return
+
+    os.makedirs(self.path_bkps, exist_ok = True)
+
+    bkp_path = os.path.join(self.path_bkps, f'{self.name} 1.zip')
+    pattern = os.path.join(self.path_bkps, f'{self.name} [1-{self.client.config["Backups"]}].zip')
+    bkps = glob.glob(pattern)
+    sorted_bkps = sorted(bkps, key = os.path.getmtime, reverse = True)
+
+    # Delete excess backups
+    for i in range(self.client.config['Backups'] - 1, len(sorted_bkps)): 
+        os.remove(sorted_bkps.pop(i))
+
+    sorted_bkps.reverse()
+
+    # Rename existing backups (increment numbers)
+    for bkp in sorted_bkps:
+        new_index = (len(sorted_bkps) + 1) - sorted_bkps.index(bkp)
+        new_name = os.path.join(self.path_bkps, f"{self.name} {new_index}.zip")
+        os.rename(bkp, new_name)
+    
+    # Create backup log
+    log_filename = 'backup_log.txt'
+    log_path = os.path.join(self.path_files, log_filename)
+    log_content = f'Backup created on: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\n'
+
+    with open(log_path, 'w') as log_file:
+        log_file.write(log_content)
+
+    # Create ZIP archive
+    make_zip(self.path_files, bkp_path, counter)
+
+    os.remove(log_path)
+```
+
+**Steps:**
+1. Verify process is stopped
+2. Find existing backups
+3. Delete backups exceeding configured limit
+4. Rename existing backups (1→2, 2→3, etc.)
+5. Create timestamp log
+6. Compress server directory to ZIP
+7. Remove timestamp log
+
+<Info>
+  A temporary `backup_log.txt` file is created during backup to record the exact time the backup was made. This file is included in the ZIP but removed from the live server.
+</Info>
+
+## Restoring Backups
+
+<Warning>
+  **Restoring a backup is DESTRUCTIVE!** It will:
+  - Delete ALL current files in the server directory
+  - Extract the backup in their place
+  - This action CANNOT be undone
+  
+  Create a backup of your current state before restoring an old backup!
+</Warning>
+
+<Steps>
+  <Step title="Create Current Backup">
+    Before restoring, create a backup of your current state:
+    
+    ```
+    McDis/.mdbackups/<server_name> → Create new backup
+    ```
+    
+    This gives you a way to revert if the restoration goes wrong.
+  </Step>
+  
+  <Step title="Stop the Server">
+    Ensure the server is completely stopped:
+    
+    ```
+    !!stop my_server
+    ```
+  </Step>
+  
+  <Step title="Navigate to Backups">
+    Go to `McDis/.mdbackups/<server_name>`
+  </Step>
+  
+  <Step title="Select Backup">
+    Choose the backup version you want to restore from the dropdown:
+    - `<server> 1.zip` - Most recent
+    - `<server> 2.zip` - Second most recent
+    - etc.
+  </Step>
+  
+  <Step title="Confirm Restoration">
+    McDis will ask for confirmation. Confirm you want to proceed.
+  </Step>
+  
+  <Step title="Wait for Extraction">
+    The backup will be extracted to the server directory. This may take a while for large backups.
+  </Step>
+  
+  <Step title="Start Server">
+    Once extraction is complete, start your server:
+    
+    ```
+    !!start my_server
+    ```
+  </Step>
+</Steps>
+
+### Restoration Process
+
+```python:mcdis_rcon/classes/Process.py
+def unpack_bkp(self, backup, *, counter: list = None):
+    shutil.rmtree(self.path_files)
+
+    os.makedirs(self.path_files, exist_ok = True)
+    source = os.path.join(self.path_bkps, backup)
+
+    unpack_zip(source, self.path_files, counter)
+```
+
+**Steps:**
+1. Delete entire server directory
+2. Create empty server directory
+3. Extract backup ZIP to server directory
+4. Restoration complete
+
+## Backup Rotation
+
+McDis-RCON uses a simple rotation system:
+
+### Example with `Backups: 3`
+
+**Initial state:**
+```
+(no backups)
+```
+
+**After 1st backup:**
+```
+server 1.zip  (current)
+```
+
+**After 2nd backup:**
+```
+server 1.zip  (newest)
+server 2.zip  (older)
+```
+
+**After 3rd backup:**
+```
+server 1.zip  (newest)
+server 2.zip  (middle)
+server 3.zip  (oldest)
+```
+
+**After 4th backup:**
+```
+server 1.zip  (newest)  ← new backup
+server 2.zip  (middle)  ← was server 1
+server 3.zip  (oldest)  ← was server 2
+                        ← old server 3 deleted
+```
+
+<Info>
+  Backups are numbered from 1 (newest) to configured limit (oldest). When the limit is reached, the oldest backup is deleted automatically.
+</Info>
+
+## Backup Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Schedule Regular Backups" icon="calendar">
+    Create backups on a regular schedule (daily, weekly) depending on server activity.
+  </Card>
+  <Card title="Before Major Changes" icon="exclamation-triangle">
+    Always backup before:
+    - Server updates
+    - Plugin installations
+    - World edits
+    - Configuration changes
+  </Card>
+  <Card title="Test Restorations" icon="vial">
+    Periodically test restoring backups to ensure they're valid and complete.
+  </Card>
+  <Card title="External Backups" icon="cloud">
+    Download important backups to external storage (cloud, NAS) for disaster recovery.
+  </Card>
+</CardGroup>
+
+## Backup Size Considerations
+
+### Typical Backup Sizes
+
+- **Vanilla server (new world)**: 50-100 MB
+- **Vanilla server (established)**: 200-500 MB
+- **Modded server**: 500 MB - 2 GB+
+- **Long-running server**: 1-5 GB+
+
+<Tip>
+  Backup size depends on:
+  - World size (explored chunks)
+  - Number of plugins/mods
+  - Player data
+  - Log files
+  - Custom resourcepacks
+</Tip>
+
+### Reducing Backup Size
+
+To reduce backup sizes:
+
+1. **Clean up logs before backup:**
+   ```bash
+   # In file manager terminal
+   rm McDis/my_server/logs/*.log.gz
+   ```
+
+2. **Remove old world backups:**
+   ```bash
+   rm -rf McDis/my_server/world_backup_*
+   ```
+
+3. **Exclude crash reports:**
+   ```bash
+   rm -rf McDis/my_server/crash-reports/*
+   ```
+
+4. **Increase backup retention interval** (fewer backups kept)
+   ```yaml
+   Backups: 2  # Instead of 3 or more
+   ```
+
+## Backup Automation
+
+While McDis-RCON doesn't have built-in scheduled backups, you can automate them using plugins:
+
+### Example Backup Plugin
+
+```python
+# McDis/my_server/.mdplugins/auto_backup.py
+
+import asyncio
+from datetime import datetime
+
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+        self.backup_interval = 86400  # 24 hours in seconds
+        asyncio.create_task(self.backup_scheduler())
+    
+    async def backup_scheduler(self):
+        while True:
+            await asyncio.sleep(self.backup_interval)
+            
+            if self.process.is_running():
+                # Stop server
+                self.process.stop()
+                
+                # Wait for shutdown
+                while self.process.is_running():
+                    await asyncio.sleep(1)
+                
+                # Create backup
+                self.process.make_bkp()
+                
+                # Restart server
+                self.process.start()
+```
+
+<Note>
+  See [Plugins & Addons](/guides/plugins-overview) for more information on creating custom automation.
+</Note>
+
+## Downloading Backups
+
+To download backups to your local machine:
+
+### Small Backups (< 5MB)
+
+<Steps>
+  <Step title="Navigate to Backup">
+    `McDis/.mdbackups/<server>/<server> 1.zip`
+  </Step>
+  
+  <Step title="Click Request">
+    The ZIP file is attached to a Discord message
+  </Step>
+  
+  <Step title="Download">
+    Click the attachment to download
+  </Step>
+</Steps>
+
+### Large Backups (> 5MB)
+
+<Steps>
+  <Step title="Enable Flask Server">
+    Configure and enable Flask in `md_config.yml` and Tools → Flask
+  </Step>
+  
+  <Step title="Request Backup">
+    Click **Request** on the backup file
+  </Step>
+  
+  <Step title="Get Download Link">
+    A download link is generated and sent in Discord
+  </Step>
+  
+  <Step title="Download via Browser">
+    Click the link to download through the Flask server
+  </Step>
+</Steps>
+
+<Info>
+  Configure Flask links as "Single Use" and "Temporary" for security when downloading sensitive backups.
+</Info>
+
+## Uploading Backups
+
+To upload a backup created elsewhere:
+
+<Steps>
+  <Step title="Enable Uploader">
+    Tools → Uploader → Set path to `.mdbackups/<server>`
+  </Step>
+  
+  <Step title="Upload ZIP">
+    Drag your backup ZIP file into the Discord panel channel
+  </Step>
+  
+  <Step title="Verify Upload">
+    Check the `.mdbackups/<server>` folder to confirm the file was uploaded
+  </Step>
+  
+  <Step title="Rename if Needed">
+    Use Edit to rename to match the naming scheme (`<server> 1.zip`)
+  </Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Backup creation fails">
+    **Possible causes:**
+    - Server is still running
+    - Insufficient disk space
+    - Permission errors
+    - Path too long (Windows)
+    
+    **Solutions:**
+    - Ensure server is fully stopped
+    - Check disk space: `df -h` (Linux) or File Explorer (Windows)
+    - Verify write permissions on `.mdbackups/`
+    - Shorten server name or move McDis to shorter path
+  </Accordion>
+  
+  <Accordion title="Backup restoration fails">
+    **Possible causes:**
+    - Corrupted backup file
+    - Insufficient disk space
+    - Permission errors
+    - Server is running
+    
+    **Solutions:**
+    - Try a different backup version
+    - Free up disk space
+    - Check permissions
+    - Ensure server is stopped
+  </Accordion>
+  
+  <Accordion title="Backup size is huge">
+    **Possible causes:**
+    - Large world size
+    - Many mods/plugins
+    - Lots of player data
+    - Log files included
+    
+    **Solutions:**
+    - Clean up logs before backup
+    - Remove old crash reports
+    - Prune world chunks
+    - Consider reducing `Backups` setting
+  </Accordion>
+  
+  <Accordion title="Can't find backup folder">
+    **Solution:**
+    Navigate to `.mdbackups` in the file manager. This folder is hidden in some file browsers due to the leading dot.
+    
+    The folder structure is:
+    ```
+    McDis/.mdbackups/<process_name>/
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Advanced: Manual Backup Management
+
+You can also manage backups manually via file manager terminal or SSH:
+
+### Create Manual Backup
+
+```bash
+# Linux
+cd /path/to/mcdis
+zip -r ".mdbackups/my_server/my_server 1.zip" my_server/
+```
+
+### List Backups
+
+```bash
+ls -lh .mdbackups/my_server/
+```
+
+### Extract Backup Manually
+
+```bash
+# DANGER: This deletes current files!
+rm -rf my_server/
+mkdir my_server
+unzip ".mdbackups/my_server/my_server 1.zip" -d my_server/
+```
+
+<Warning>
+  Manual backup management bypasses McDis-RCON's safety checks. Use with caution!
+</Warning>
+
+## Backup vs. Version Control
+
+For configuration files and plugin code, consider using Git:
+
+```bash
+cd /path/to/mcdis/my_server
+git init
+git add config/
+git add plugins/
+git commit -m "Initial config"
+```
+
+<Tip>
+  Combine McDis-RCON backups (for full server state) with Git (for configuration tracking) for comprehensive protection.
+</Tip>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="File Manager" icon="folder" href="/features/file-manager">
+    Navigate and manage server files
+  </Card>
+  <Card title="Process Control" icon="power-off" href="/features/process-control">
+    Stop servers before creating backups
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/overview">
+    Configure backup retention policy
+  </Card>
+  <Card title="Discord Panel" icon="grid" href="/features/discord-panel">
+    Access backup tools through the panel
+  </Card>
+</CardGroup>

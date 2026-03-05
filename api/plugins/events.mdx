@@ -1,0 +1,378 @@
+---
+title: Plugin Events
+description: Complete reference for mdplugin event listeners
+icon: bolt
+---
+
+## Overview
+
+Plugins can listen to console events and Discord events by implementing specific methods. All Discord events are prefixed with `listener_`.
+
+## Console Events
+
+### listener_events(log)
+
+Called for every line of console output from the process.
+
+<ParamField path="log" type="str" required>
+  Single console log line (stripped of whitespace)
+</ParamField>
+
+```python
+def listener_events(self, log: str):
+    """Process every console line"""
+    if "WARNING" in log:
+        print(f"Warning detected: {log}")
+    
+    if "Done" in log and "For help" in log:
+        print("Server finished starting")
+```
+
+**Characteristics:**
+- Synchronous (not async)
+- Called very frequently (every console line)
+- ANSI color codes are stripped
+- Blacklisted patterns are already filtered out
+
+<Warning>
+Avoid heavy processing in this method - it's called for every console line.
+</Warning>
+
+## Discord Events
+
+All Discord.py events are available by prefixing the event name with `listener_`.
+
+### listener_on_message(message)
+
+Called for every Discord message.
+
+<ParamField path="message" type="discord.Message" required>
+  Discord message object
+</ParamField>
+
+```python
+async def listener_on_message(self, message: discord.Message):
+    """Handle all Discord messages"""
+    if message.author.bot:
+        return
+    
+    if message.content.startswith("!hello"):
+        await message.channel.send("Hello from the plugin!")
+```
+
+**Message attributes:**
+- `message.content` - Message text
+- `message.author` - User who sent it
+- `message.channel` - Channel it was sent in
+- `message.guild` - Server (guild) object
+- `message.attachments` - File attachments
+
+### listener_on_reaction_add(reaction, user)
+
+Called when a reaction is added to a message.
+
+<ParamField path="reaction" type="discord.Reaction" required>
+  Reaction object
+</ParamField>
+
+<ParamField path="user" type="discord.User" required>
+  User who added the reaction
+</ParamField>
+
+```python
+async def listener_on_reaction_add(self, reaction, user):
+    """Handle reactions"""
+    if user.bot:
+        return
+    
+    if reaction.emoji == "👍":
+        await reaction.message.channel.send(
+            f"{user.name} liked this!"
+        )
+```
+
+### listener_on_member_join(member)
+
+Called when a member joins the Discord server.
+
+<ParamField path="member" type="discord.Member" required>
+  Member who joined
+</ParamField>
+
+```python
+async def listener_on_member_join(self, member):
+    """Welcome new members"""
+    await self.process.send_to_console(
+        f"{member.name} joined the Discord!"
+    )
+```
+
+### listener_on_member_remove(member)
+
+Called when a member leaves the Discord server.
+
+```python
+async def listener_on_member_remove(self, member):
+    """Track member departures"""
+    print(f"{member.name} left the Discord")
+```
+
+### listener_on_message_edit(before, after)
+
+Called when a message is edited.
+
+<ParamField path="before" type="discord.Message" required>
+  Message before editing
+</ParamField>
+
+<ParamField path="after" type="discord.Message" required>
+  Message after editing
+</ParamField>
+
+```python
+async def listener_on_message_edit(self, before, after):
+    """Log message edits"""
+    if before.content != after.content:
+        print(f"Message edited:")
+        print(f"  Before: {before.content}")
+        print(f"  After: {after.content}")
+```
+
+### listener_on_message_delete(message)
+
+Called when a message is deleted.
+
+```python
+async def listener_on_message_delete(self, message):
+    """Log deleted messages"""
+    print(f"Message deleted: {message.content}")
+```
+
+### listener_on_voice_state_update(member, before, after)
+
+Called when someone joins/leaves/moves voice channels.
+
+```python
+async def listener_on_voice_state_update(self, member, before, after):
+    """Track voice channel activity"""
+    if before.channel is None and after.channel is not None:
+        # Joined voice
+        await self.process.send_to_console(
+            f"{member.name} joined voice: {after.channel.name}"
+        )
+```
+
+## Available Discord Events
+
+All Discord.py events are supported. Common ones:
+
+| Event Name | Description |
+|-----------|-------------|
+| `listener_on_ready` | Bot connected to Discord |
+| `listener_on_message` | Message sent |
+| `listener_on_message_edit` | Message edited |
+| `listener_on_message_delete` | Message deleted |
+| `listener_on_reaction_add` | Reaction added |
+| `listener_on_reaction_remove` | Reaction removed |
+| `listener_on_member_join` | Member joined server |
+| `listener_on_member_remove` | Member left server |
+| `listener_on_member_update` | Member updated (role, nickname) |
+| `listener_on_voice_state_update` | Voice state changed |
+| `listener_on_guild_channel_create` | Channel created |
+| `listener_on_guild_channel_delete` | Channel deleted |
+| `listener_on_thread_create` | Thread created |
+| `listener_on_thread_delete` | Thread deleted |
+
+<Tip>
+See the [Discord.py event reference](https://discordpy.readthedocs.io/en/stable/api.html#event-reference) for a complete list.
+</Tip>
+
+## Event Source Code
+
+From `/home/daytona/workspace/source/mcdis_rcon/classes/Process.py:340-341`:
+
+```python
+async def _listener_events(self, log: str):
+    await self.call_plugins('listener_events', (log, ))
+```
+
+From `/home/daytona/workspace/source/mcdis_rcon/classes/McDisClient.py:819-828`:
+
+```python
+async def call_mdextras(self, function: str, args: tuple = tuple(), 
+                        plugins: bool = True, addons: bool = True):
+    if addons:
+        await self.call_addons(function, args)
+
+    if plugins:
+        if function in self.discord_listeners: 
+            function = 'listener_' + function
+
+        for process in self.processes:
+            await process.call_plugins(function, args)
+```
+
+## Pattern: Event Filtering
+
+```python
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+        self.monitored_channel_id = 1234567890
+    
+    async def listener_on_message(self, message):
+        # Filter by channel
+        if message.channel.id != self.monitored_channel_id:
+            return
+        
+        # Filter by author
+        if message.author.bot:
+            return
+        
+        # Filter by content
+        if not message.content.startswith("!"):
+            return
+        
+        # Process command
+        await self.handle_command(message)
+```
+
+## Pattern: Async from Sync
+
+Use `asyncio.create_task()` to call async functions from `listener_events`:
+
+```python
+import asyncio
+
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+    
+    def listener_events(self, log: str):
+        """Synchronous event handler"""
+        if "Player joined" in log:
+            # Can't await here, so create a task
+            asyncio.create_task(self.handle_join(log))
+    
+    async def handle_join(self, log: str):
+        """Async handler"""
+        await self.process.send_to_console("Player joined!")
+```
+
+## Pattern: Event Debouncing
+
+```python
+from datetime import datetime, timedelta
+
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+        self.last_alert = None
+        self.cooldown = timedelta(minutes=5)
+    
+    def listener_events(self, log: str):
+        if "WARNING" in log:
+            now = datetime.now()
+            
+            # Check cooldown
+            if self.last_alert is None or \
+               now - self.last_alert > self.cooldown:
+                self.last_alert = now
+                asyncio.create_task(
+                    self.process.send_to_console(
+                        "⚠️ Warning detected"
+                    )
+                )
+```
+
+## Pattern: State Machine
+
+```python
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+        self.state = "stopped"
+    
+    def listener_events(self, log: str):
+        # State transitions based on logs
+        if "Starting minecraft server" in log:
+            self.state = "starting"
+        
+        elif "Done" in log and "For help" in log:
+            self.state = "running"
+            print("Server is now running")
+        
+        elif "Stopping server" in log:
+            self.state = "stopping"
+```
+
+## Pattern: Event Aggregation
+
+```python
+import asyncio
+
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+        self.pending_logs = []
+        self.flush_task = asyncio.create_task(self.flush_loop())
+    
+    def listener_events(self, log: str):
+        if "INFO" in log:
+            self.pending_logs.append(log)
+    
+    async def flush_loop(self):
+        """Send batched logs every 10 seconds"""
+        while True:
+            await asyncio.sleep(10)
+            
+            if self.pending_logs:
+                summary = f"Captured {len(self.pending_logs)} logs"
+                await self.process.send_to_console(summary)
+                self.pending_logs.clear()
+    
+    def unload(self):
+        self.flush_task.cancel()
+```
+
+## Error Handling
+
+```python
+import traceback
+import asyncio
+
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+    
+    def listener_events(self, log: str):
+        try:
+            # Your potentially risky code
+            self.process_log(log)
+        except Exception as e:
+            # Log error
+            error_msg = f"Plugin error: {str(e)}\n{traceback.format_exc()}"
+            print(error_msg)
+            
+            # Optionally report to Discord
+            asyncio.create_task(
+                self.process.error_report(
+                    title="Plugin Error",
+                    error=error_msg
+                )
+            )
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="mdplugin Class" href="/api/plugins/mdplugin" icon="plug">
+    Plugin class reference
+  </Card>
+  <Card title="Creating Plugins" href="/guides/creating-plugins" icon="code">
+    Complete plugin examples
+  </Card>
+  <Card title="Discord.py Events" href="https://discordpy.readthedocs.io/en/stable/api.html#event-reference" icon="book">
+    Full Discord event reference
+  </Card>
+</CardGroup>

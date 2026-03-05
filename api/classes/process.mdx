@@ -1,0 +1,407 @@
+---
+title: Process
+description: Base class for managing server and network processes
+icon: server
+---
+
+## Overview
+
+The `Process` class is the base class for `Server` and `Network`. It handles process lifecycle, console monitoring, plugin management, and Discord integration.
+
+## Class Definition
+
+```python
+from mcdis_rcon.classes import Process
+
+class Process():
+    def __init__(self, name: str, client: McDisClient, config: dict):
+        self.name = name
+        self.client = client
+        # ... initialization
+```
+
+## Attributes
+
+<ParamField path="name" type="str">
+  Process name (from md_config.yml)
+</ParamField>
+
+<ParamField path="path_files" type="str">
+  Directory for process files (equals `name`)
+</ParamField>
+
+<ParamField path="client" type="McDisClient">
+  Reference to main McDisClient instance
+</ParamField>
+
+<ParamField path="prefix" type="str">
+  Command prefix (inherited from client)
+</ParamField>
+
+<ParamField path="path_bkps" type="str">
+  Backup directory: `.mdbackups/<name>`
+</ParamField>
+
+<ParamField path="path_plugins" type="str">
+  Plugin directory: `<name>/.mdplugins`
+</ParamField>
+
+<ParamField path="path_commands" type="str">
+  Commands directory: `<name>/.mdcommands`
+</ParamField>
+
+<ParamField path="start_cmd" type="str">
+  Command to start the process (from config)
+</ParamField>
+
+<ParamField path="stop_cmd" type="str">
+  Command to stop the process (from config)
+</ParamField>
+
+<ParamField path="blacklist" type="list[str]">
+  Log patterns to exclude from Discord relay
+</ParamField>
+
+<ParamField path="plugins" type="dict">
+  Dictionary of loaded mdplugin instances
+</ParamField>
+
+<ParamField path="process" type="subprocess.Popen">
+  The subprocess instance
+</ParamField>
+
+<ParamField path="real_process" type="psutil.Process">
+  Actual Java process (for resource monitoring)
+</ParamField>
+
+## Process Lifecycle
+
+### start()
+
+```python
+def start(self):
+    if self.is_running(): 
+        return
+    
+    self._console_log = queue.Queue()
+    self._console_relay = queue.Queue()
+    
+    self.process = subprocess.Popen(
+        self.start_cmd.split(' '), 
+        cwd = self.path_files, 
+        stdout = subprocess.PIPE, 
+        stderr = subprocess.PIPE, 
+        stdin = subprocess.PIPE,
+        start_new_session = True)
+    
+    self.load_plugins()
+    asyncio.create_task(self._listener_console())
+```
+
+Starts the process with:
+1. Creates console log queues
+2. Spawns subprocess with start_cmd
+3. Loads mdplugins
+4. Begins console monitoring
+
+### stop(omit_task=False)
+
+```python
+def stop(self, *, omit_task = False):
+    if not self.is_running(): 
+        return
+    
+    self.execute(self.stop_cmd)
+    
+    if not omit_task: 
+        asyncio.create_task(self.stop_task())
+```
+
+Gracefully stops the process using `stop_cmd`.
+
+### kill(omit_task=False)
+
+```python
+def kill(self, *, omit_task = False):
+    if isinstance(self.process, subprocess.Popen): 
+        try: 
+            self.process.kill()
+        except: 
+            pass
+    
+    self._find_real_process()
+    try: 
+        self.real_process.kill()
+    except: 
+        pass
+```
+
+Force-kills the process immediately.
+
+### restart()
+
+```python
+async def restart(self):
+    if not self.is_running(): 
+        return
+    
+    self.stop()
+    
+    while self.is_running():
+        await asyncio.sleep(0.1)
+    
+    self.start()
+```
+
+Stops then starts the process.
+
+### is_running(poll_based=False)
+
+```python
+def is_running(self, poll_based: bool = False) -> bool:
+    if self.process != None:
+        if self.process.poll() is None or not poll_based:
+            return True
+        return False
+    return False
+```
+
+<ResponseField name="return" type="bool">
+  True if process is running, False otherwise
+</ResponseField>
+
+## Plugin Management
+
+### load_plugins(reload=False)
+
+```python
+def load_plugins(self, *, reload = False):
+    if not self.is_running(): 
+        return
+    
+    if reload:
+        self.unload_plugins()
+    
+    valid_extensions = ['.py', '.mcdis']
+    files_in_plugins_dir = os.listdir(self.path_plugins)
+    plugins = [file for file in files_in_plugins_dir 
+               if os.path.splitext(file)[1] in valid_extensions]
+    
+    for plugin in plugins:
+        module_path = os.path.join(self.path_plugins, plugin)
+        spec = importlib.util.spec_from_file_location(
+            plugin.removesuffix('.py'), module_path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        
+        plugin_instance = mod.mdplugin(self)
+        self.plugins[os.path.splitext(plugin)[0]] = plugin_instance
+```
+
+Loads plugins from `.mdplugins/` directory.
+
+### call_plugins(function, args)
+
+```python
+async def call_plugins(self, function: str, args: tuple = tuple()):
+    for name, plugin in self.plugins.items():
+        try: 
+            func = getattr(plugin, function, None)
+            if func:
+                await func(*args)
+        except: 
+            await self.error_report(
+                title = f'{function}() of {plugin}',
+                error = traceback.format_exc()
+            )
+```
+
+Calls a method on all loaded plugins.
+
+## Console Management
+
+### execute(command)
+
+```python
+def execute(self, command: str):
+    try:
+        self.process.stdin.write((command + '\n').encode())
+        self.process.stdin.flush()
+    except:
+        pass
+```
+
+Sends a command to the process's stdin.
+
+### send_to_console(message)
+
+```python
+async def send_to_console(self, message: str) -> discord.Message:
+    mrkd = f'```md\n{truncate(message, 1990)}\n```'
+    remote_console = await thread(f'Console {self.name}', self.client.panel)
+    
+    discord_message = await remote_console.send(mrkd)
+    return discord_message
+```
+
+Sends a message to the Discord console thread.
+
+### add_log(log)
+
+```python
+def add_log(self, log: str):
+    self._console_relay.put(self.log_format(log))
+```
+
+Adds a formatted log entry to the relay queue.
+
+### log_format(log, type)
+
+```python
+def log_format(self, log: str, type: str = 'INFO'):
+    return f'[McDis] [{datetime.now().strftime("%H:%M:%S")}] [MainThread/{type}]: {log}'
+```
+
+Formats log messages in Minecraft-style format.
+
+## Resource Monitoring
+
+### ram_usage()
+
+```python
+def ram_usage(self) -> str:
+    if not self.is_running(): 
+        pass
+    elif not isinstance(self.real_process, psutil.Process):
+        self._find_real_process()
+    elif not self.real_process.is_running():
+        self._find_real_process()
+    
+    return ram_usage(self.real_process)
+```
+
+<ResponseField name="return" type="str">
+  RAM usage string (e.g., "2.5 GB")
+</ResponseField>
+
+### disk_usage(string=True)
+
+```python
+def disk_usage(self, string = True) -> float:
+    return get_path_size(self.path_files, string = string)
+```
+
+<ResponseField name="return" type="str | float">
+  Disk usage as string or bytes
+</ResponseField>
+
+## Backup Management
+
+### make_bkp(counter)
+
+```python
+def make_bkp(self, *, counter: list = None):
+    if self.is_running(): 
+        return
+    
+    # Rotate existing backups
+    bkp_path = os.path.join(self.path_bkps, f'{self.name} 1.zip')
+    pattern = os.path.join(self.path_bkps, f'{self.name} [1-{self.client.config["Backups"]}].zip')
+    bkps = glob.glob(pattern)
+    sorted_bkps = sorted(bkps, key = os.path.getmtime, reverse = True)
+    
+    # Create new backup
+    make_zip(self.path_files, bkp_path, counter)
+```
+
+Creates a backup of the process directory.
+
+### unpack_bkp(backup, counter)
+
+```python
+def unpack_bkp(self, backup, *, counter: list = None):
+    shutil.rmtree(self.path_files)
+    os.makedirs(self.path_files, exist_ok = True)
+    source = os.path.join(self.path_bkps, backup)
+    unpack_zip(source, self.path_files, counter)
+```
+
+Restores from a backup.
+
+## Discord Integration
+
+### discord_listener(message)
+
+```python
+async def discord_listener(self, message: discord.Message):
+    if not isinstance(message.channel, discord.Thread): 
+        return
+    elif not message.channel.parent_id == self.client.panel.id: 
+        return
+    elif not message.channel.name == f'Console {self.name}': 
+        return
+    
+    if message.content.lower() == 'start':
+        self.start()
+    elif message.content.lower() == 'stop':
+        self.stop()
+    elif message.content.lower() == 'restart':
+        await self.restart()
+    else:
+        self.execute(message.content)
+```
+
+Handles messages in the process's console thread.
+
+## Error Reporting
+
+### error_report(title, error)
+
+```python
+async def error_report(self, *, title: str, error: str):
+    formatted_title = f'{self.name}: {title}'
+    
+    error_link = await self.client.error_report(
+        title = formatted_title,
+        error = error
+    )
+    
+    formatted_error = self.log_format(f'Error report created. {formatted_title}')
+    remote_console = await thread(f'Console {self.name}', self.client.panel)
+    await remote_console.send(f'{error_link}\n```md\n{formatted_error}\n```')
+```
+
+Reports errors to Discord with clickable links.
+
+## Usage Example
+
+```python
+# In a plugin
+class mdplugin:
+    def __init__(self, process):
+        self.process = process  # Process instance
+        
+    def listener_events(self, log: str):
+        if "Player joined" in log:
+            # Execute server command
+            self.process.execute("say Welcome!")
+            
+            # Send to Discord
+            asyncio.create_task(
+                self.process.send_to_console("New player joined!")
+            )
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Server Class" href="/api/classes/server" icon="cube">
+    Server-specific implementation
+  </Card>
+  <Card title="Network Class" href="/api/classes/network" icon="network-wired">
+    Network-specific implementation
+  </Card>
+  <Card title="Creating Plugins" href="/guides/creating-plugins" icon="code">
+    Build custom plugins
+  </Card>
+</CardGroup>

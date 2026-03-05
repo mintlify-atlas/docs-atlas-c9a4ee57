@@ -1,0 +1,505 @@
+---
+title: Creating Plugins
+description: Step-by-step guide to creating custom mdplugins with practical examples
+icon: code
+---
+
+This guide walks you through creating custom mdplugins for McDis-RCON, from basic console monitoring to advanced Discord integration.
+
+## Plugin Template
+
+Every plugin starts with this basic structure:
+
+```python plugin_template.py
+from mcdis_rcon.classes import McDisClient
+import discord
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        """Called when plugin is loaded"""
+        self.client = client
+        # Initialize your variables here
+
+    def listener_events(self, log: str):
+        """Called for every console log line"""
+        # Process server console output
+        pass
+
+    async def listener_on_message(self, message: discord.Message):
+        """Called for every Discord message (requires async)"""
+        # React to Discord messages
+        pass
+
+    def unload(self):
+        """Called when plugin is unloaded (optional)"""
+        # Cleanup code here
+        pass
+```
+
+<Info>
+Save your plugin as a `.py` file in `McDis/<process>/.mdplugins/` and reload with `!!mdreload <process>`.
+</Info>
+
+## Example 1: Player Join Tracker
+
+Let's create a plugin that tracks when players join the server:
+
+```python player_tracker.py
+from mcdis_rcon.classes import McDisClient
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    def listener_events(self, log: str):
+        """Detect players connecting via logs"""
+        if "joined the game" in log:
+            # Extract player name
+            # Assumes format: "[HH:MM:SS] [Server thread/INFO]: Player <name> joined the game"
+            player_name = log.split(" ")[1]
+            print(f"Player {player_name} has joined.")
+```
+
+**How it works:**
+1. `listener_events` is called for every console line
+2. Check if "joined the game" appears in the log
+3. Extract the player name from the log format
+4. Print a message (visible in McDis-RCON console)
+
+### Testing the Plugin
+
+<Steps>
+  <Step title="Save the file">
+    Place `player_tracker.py` in `McDis/SMP/.mdplugins/`
+  </Step>
+  
+  <Step title="Load the plugin">
+    ```bash
+    !!mdreload SMP
+    ```
+  </Step>
+  
+  <Step title="Test it">
+    Have a player join your server and watch for the print output
+  </Step>
+</Steps>
+
+## Example 2: Discord Reactor
+
+React to all messages in the panel channel when the process is running:
+
+```python reactor.py
+import discord
+from mcdis_rcon.classes import McDisClient
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    async def listener_on_message(self, message: discord.Message):
+        """Add a reaction to panel messages"""
+        if message.author.bot:
+            return  # Ignore messages from bots
+
+        if message.channel.id == self.client.panel.id:
+            await message.add_reaction('✅')
+```
+
+**Key points:**
+- `async def` is required for Discord events
+- `message.author.bot` check prevents reacting to bot messages
+- `self.client.panel.id` accesses the panel channel ID
+
+<Note>
+This plugin only reacts while the SMP server is running. When stopped, the plugin unloads.
+</Note>
+
+## Example 3: Console Warning Notifier
+
+Send Discord notifications when warnings appear in the console:
+
+```python warning_notifier.py
+from mcdis_rcon.classes import McDisClient
+import asyncio
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    def listener_events(self, log: str):
+        """Detect warnings in console"""
+        if "WARN" in log or "WARNING" in log:
+            # Create an async task to send Discord message
+            asyncio.create_task(self.send_warning(log))
+
+    async def send_warning(self, log: str):
+        """Send warning to Discord console"""
+        message = f"⚠️ Warning detected:\n{log}"
+        await self.client.send_to_console(message)
+```
+
+**Why `asyncio.create_task`?**
+
+`listener_events` is synchronous, but `send_to_console` is async. We use `asyncio.create_task` to bridge the gap.
+
+## Example 4: Auto-restart on Crash
+
+Automatically restart the server if a crash is detected:
+
+```python auto_restart.py
+from mcdis_rcon.classes import McDisClient
+import asyncio
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.crash_detected = False
+
+    def listener_events(self, log: str):
+        """Detect crash patterns"""
+        crash_keywords = [
+            "java.lang.OutOfMemoryError",
+            "Exception in server thread",
+            "Encountered an unexpected exception"
+        ]
+        
+        if any(keyword in log for keyword in crash_keywords):
+            if not self.crash_detected:
+                self.crash_detected = True
+                asyncio.create_task(self.handle_crash())
+
+    async def handle_crash(self):
+        """Handle server crash"""
+        await self.client.send_to_console("🔴 Crash detected! Restarting in 10 seconds...")
+        await asyncio.sleep(10)
+        await self.client.restart()
+
+    def unload(self):
+        """Reset crash flag on unload"""
+        self.crash_detected = False
+```
+
+<Warning>
+Be careful with auto-restart logic. If the crash persists, you could end up in a restart loop.
+</Warning>
+
+## Example 5: Player Activity Logger
+
+Log player activity to a file:
+
+```python activity_logger.py
+from mcdis_rcon.classes import McDisClient
+from datetime import datetime
+import os
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.log_file = os.path.join(client.path_files, "player_activity.log")
+        
+    def listener_events(self, log: str):
+        """Log player joins and leaves"""
+        if "joined the game" in log or "left the game" in log:
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            with open(self.log_file, "a") as f:
+                f.write(f"[{timestamp}] {log}\n")
+
+    def unload(self):
+        """Cleanup on unload"""
+        print(f"Activity logger unloaded. Logs saved to {self.log_file}")
+```
+
+**File location:**
+
+The log file is saved to the server folder: `McDis/server 1/player_activity.log`
+
+## Example 6: Discord Chat Bridge
+
+Bridge messages from Discord to Minecraft:
+
+```python chat_bridge.py
+import discord
+from mcdis_rcon.classes import McDisClient
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.bridge_channel_id = 1234567890  # Replace with your channel ID
+
+    async def listener_on_message(self, message: discord.Message):
+        """Send Discord messages to Minecraft chat"""
+        if message.author.bot:
+            return
+        
+        if message.channel.id == self.bridge_channel_id:
+            # Escape Minecraft formatting codes
+            clean_content = message.content.replace('"', '\\"')
+            
+            # Send to Minecraft
+            command = f'tellraw @a ["{{\"text\":\"[Discord] {message.author.name}: {clean_content}\",\"color\":\"blue\"}}]"]'
+            self.client.execute(command)
+
+    def listener_events(self, log: str):
+        """Send Minecraft chat to Discord"""
+        if "<" in log and ">" in log:  # Chat message format: <Player> message
+            # Extract player and message
+            try:
+                parts = log.split("<")[1].split(">", 1)
+                player = parts[0]
+                message = parts[1].strip()
+                
+                # Send to Discord (requires async bridge)
+                asyncio.create_task(self.send_to_discord(player, message))
+            except:
+                pass
+
+    async def send_to_discord(self, player: str, message: str):
+        """Send Minecraft chat to Discord channel"""
+        channel = self.client.client.get_channel(self.bridge_channel_id)
+        if channel:
+            await channel.send(f"**[Minecraft] {player}:** {message}")
+```
+
+<Tip>
+Adjust the chat parsing logic based on your server's log format. Different server software (Paper, Spigot, etc.) may format logs differently.
+</Tip>
+
+## Example 7: Performance Monitor
+
+Track server performance and alert on lag:
+
+```python performance_monitor.py
+from mcdis_rcon.classes import McDisClient
+import asyncio
+import re
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.tps_threshold = 15.0  # Alert if TPS drops below this
+
+    def listener_events(self, log: str):
+        """Monitor TPS and lag spikes"""
+        # Example: Paper servers output TPS in logs
+        # Format: "Server tick loop: X.XX ms (YY.YY TPS)"
+        
+        if "Server tick loop" in log or "TPS" in log:
+            # Extract TPS value using regex
+            match = re.search(r'([0-9.]+) TPS', log)
+            if match:
+                tps = float(match.group(1))
+                if tps < self.tps_threshold:
+                    asyncio.create_task(self.alert_low_tps(tps))
+        
+        # Detect "Can't keep up" messages
+        if "Can't keep up!" in log:
+            asyncio.create_task(self.alert_lag())
+
+    async def alert_low_tps(self, tps: float):
+        """Alert when TPS drops"""
+        message = f"⚠️ Low TPS detected: {tps:.2f} TPS"
+        await self.client.send_to_console(message)
+
+    async def alert_lag(self):
+        """Alert on lag spike"""
+        await self.client.send_to_console("⚠️ Server can't keep up! Lag detected.")
+```
+
+## Advanced: State Management
+
+Plugins can maintain state across events:
+
+```python player_counter.py
+from mcdis_rcon.classes import McDisClient
+import json
+import os
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.data_file = os.path.join(client.path_files, "player_stats.json")
+        self.player_stats = self.load_stats()
+
+    def load_stats(self):
+        """Load stats from file"""
+        if os.path.exists(self.data_file):
+            with open(self.data_file, 'r') as f:
+                return json.load(f)
+        return {"total_joins": 0, "players": {}}
+
+    def save_stats(self):
+        """Save stats to file"""
+        with open(self.data_file, 'w') as f:
+            json.dump(self.player_stats, f, indent=2)
+
+    def listener_events(self, log: str):
+        """Track player statistics"""
+        if "joined the game" in log:
+            player = log.split(" ")[1]
+            
+            # Increment counters
+            self.player_stats["total_joins"] += 1
+            if player not in self.player_stats["players"]:
+                self.player_stats["players"][player] = 0
+            self.player_stats["players"][player] += 1
+            
+            # Save to disk
+            self.save_stats()
+            
+            # Welcome message
+            join_count = self.player_stats["players"][player]
+            self.client.execute(f"say Welcome {player}! Join count: {join_count}")
+
+    def unload(self):
+        """Save stats on unload"""
+        self.save_stats()
+        print(f"Player stats saved. Total joins: {self.player_stats['total_joins']}")
+```
+
+## Accessing the McDisClient
+
+The `self.client.client` attribute gives access to the full McDisClient:
+
+```python
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        
+        # Access McDis-RCON features
+        self.panel = self.client.client.panel          # Panel channel
+        self.config = self.client.client.config        # md_config.yml
+        self.processes = self.client.client.processes  # All processes
+        self.servers = self.client.client.servers      # All servers
+        self.networks = self.client.client.networks    # All networks
+```
+
+## Error Handling Best Practices
+
+```python
+import traceback
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    def listener_events(self, log: str):
+        try:
+            # Your potentially risky code
+            self.process_log(log)
+        except Exception as e:
+            # Log the error
+            error_msg = f"Error in plugin: {str(e)}\n{traceback.format_exc()}"
+            print(error_msg)
+            
+            # Optionally send to Discord
+            asyncio.create_task(
+                self.client.send_to_console(f"⚠️ Plugin error: {str(e)}")
+            )
+
+    def process_log(self, log: str):
+        """Separate method for cleaner error handling"""
+        # Process logic here
+        pass
+```
+
+## Testing Plugins
+
+<Steps>
+  <Step title="Create the plugin">
+    Write your plugin file in `.mdplugins/`
+  </Step>
+  
+  <Step title="Load the plugin">
+    ```bash
+    !!mdreload <process>
+    ```
+    
+    Check the console thread for loading confirmation:
+    ```
+    Reloading McDis Plugin System...
+    McDis Plugin System is starting up
+    Importing mdplugins...
+    Plugin imported:: your_plugin.py
+    ```
+  </Step>
+  
+  <Step title="Test functionality">
+    Trigger the events your plugin listens for and verify behavior
+  </Step>
+  
+  <Step title="Check for errors">
+    Monitor the Error Reports thread for any plugin errors
+  </Step>
+  
+  <Step title="Iterate">
+    Make changes and reload:
+    ```bash
+    !!mdreload <process>
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+Use `print()` statements during development to debug your plugin. Output appears in the McDis-RCON terminal.
+</Tip>
+
+## Common Patterns
+
+### Pattern: Delayed Actions
+
+```python
+async def delayed_action(self):
+    await asyncio.sleep(60)  # Wait 60 seconds
+    self.client.execute("say One minute has passed!")
+
+def listener_events(self, log: str):
+    if "Server started" in log:
+        asyncio.create_task(self.delayed_action())
+```
+
+### Pattern: Rate Limiting
+
+```python
+from datetime import datetime, timedelta
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.last_alert = None
+        self.alert_cooldown = timedelta(minutes=5)
+
+    def listener_events(self, log: str):
+        if "WARNING" in log:
+            now = datetime.now()
+            if self.last_alert is None or now - self.last_alert > self.alert_cooldown:
+                self.last_alert = now
+                asyncio.create_task(self.client.send_to_console("⚠️ Warning!"))
+```
+
+### Pattern: Command Parsing
+
+```python
+async def listener_on_message(self, message: discord.Message):
+    if message.channel.id == self.client.client.panel.id:
+        if message.content.startswith("!stats"):
+            # Custom command handling
+            stats = self.get_player_stats()
+            await message.channel.send(f"Player stats: {stats}")
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Plugins Overview" href="/guides/plugins-overview" icon="book">
+    Review plugin concepts and architecture
+  </Card>
+  <Card title="Addons Overview" href="/guides/addons-overview" icon="puzzle-piece">
+    Learn about global addons for McDis-RCON
+  </Card>
+  <Card title="Predefined Commands" href="/guides/predefined-commands" icon="terminal">
+    Create custom commands using .mdcommands
+  </Card>
+  <Card title="Advanced Examples" href="https://github.com/mjpr-3435/AeternumBot" icon="github">
+    See production plugin implementations
+  </Card>
+</CardGroup>

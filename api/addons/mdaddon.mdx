@@ -1,0 +1,367 @@
+---
+title: mdaddon Class
+description: Base class for creating global addons
+icon: puzzle-piece
+---
+
+## Overview
+
+The `mdaddon` class is the foundation for creating global addons that extend McDis-RCON's functionality across all processes, independent of any specific server or network.
+
+## Class Template
+
+```python
+from mcdis_rcon.classes import McDisClient
+import discord
+import asyncio
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        """Called when addon is loaded"""
+        self.client = client
+        # Initialize your variables here
+
+    async def on_message(self, message: discord.Message):
+        """Called for every Discord message"""
+        pass
+
+    async def on_ready(self):
+        """Called when bot connects to Discord"""
+        pass
+
+    def unload(self):
+        """Called when addon is unloaded (optional)"""
+        pass
+```
+
+## Constructor
+
+### __init__(client)
+
+<ParamField path="client" type="McDisClient" required>
+  The main McDisClient instance
+</ParamField>
+
+```python
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.config = client.config
+        self.panel = client.panel
+        print(f"Addon loaded for {len(client.processes)} processes")
+```
+
+**Available attributes from client:**
+
+- `self.client.config` - Configuration from md_config.yml
+- `self.client.panel` - Panel Discord channel
+- `self.client.processes` - All processes
+- `self.client.servers` - Server processes only
+- `self.client.networks` - Network processes only
+- `self.client.addons` - Other loaded addons
+- `self.client.cwd` - Working directory
+
+## Event Handlers
+
+### on_ready()
+
+Called when the Discord bot successfully connects.
+
+```python
+async def on_ready(self):
+    """Initialize after Discord connection"""
+    print(f"Addon ready! Bot user: {self.client.user}")
+    
+    # Start background tasks
+    self.monitor_task = asyncio.create_task(self.monitor_loop())
+    
+    # Send startup message
+    await self.client.panel.send("Addon initialized!")
+```
+
+<Info>
+Use `on_ready()` to start background tasks or perform initialization that requires Discord connection.
+</Info>
+
+### on_message(message)
+
+Called for every Discord message, regardless of process state.
+
+<ParamField path="message" type="discord.Message" required>
+  Discord message object
+</ParamField>
+
+```python
+async def on_message(self, message: discord.Message):
+    """Handle Discord messages globally"""
+    if message.author.bot:
+        return
+    
+    if message.content == "!status":
+        running = [p.name for p in self.client.processes if p.is_running()]
+        stopped = [p.name for p in self.client.processes if not p.is_running()]
+        
+        status = f"**Status:**\n"
+        status += f"🟢 Running: {', '.join(running) or 'None'}\n"
+        status += f"🔴 Stopped: {', '.join(stopped) or 'None'}"
+        
+        await message.channel.send(status)
+```
+
+<Info>
+`on_message` is **async** and works even when no processes are running.
+</Info>
+
+### Additional Discord Events
+
+Addons can listen to any Discord.py event:
+
+```python
+async def on_member_join(self, member: discord.Member):
+    """Called when a member joins the Discord"""
+    await self.client.panel.send(
+        f"👋 Welcome {member.mention} to the server!"
+    )
+
+async def on_reaction_add(self, reaction, user):
+    """Called when a reaction is added"""
+    if user.bot:
+        return
+    
+    if reaction.emoji == "📌":
+        await reaction.message.pin()
+
+async def on_voice_state_update(self, member, before, after):
+    """Called when voice state changes"""
+    if before.channel is None and after.channel is not None:
+        print(f"{member.name} joined voice: {after.channel.name}")
+```
+
+## Cleanup
+
+### unload()
+
+Called when the addon is unloaded (`!!adreload`).
+
+```python
+def unload(self):
+    """Cleanup resources"""
+    # Cancel background tasks
+    if hasattr(self, 'monitor_task'):
+        self.monitor_task.cancel()
+    
+    # Save data
+    self.save_config()
+    
+    # Close connections
+    if hasattr(self, 'session'):
+        asyncio.create_task(self.session.close())
+    
+    print("Addon unloaded")
+```
+
+<Warning>
+Always implement `unload()` to clean up tasks, files, and connections.
+</Warning>
+
+## Complete Example
+
+```python status_monitor.py
+from mcdis_rcon.classes import McDisClient
+import discord
+import asyncio
+from datetime import datetime
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.monitor_task = None
+        self.status_history = []
+    
+    async def on_ready(self):
+        """Start monitoring when bot is ready"""
+        print("Status monitor addon ready")
+        self.monitor_task = asyncio.create_task(self.monitor_loop())
+    
+    async def monitor_loop(self):
+        """Check process status every 30 seconds"""
+        while True:
+            await asyncio.sleep(30)
+            
+            status = {
+                "timestamp": datetime.now().isoformat(),
+                "processes": {}
+            }
+            
+            for process in self.client.processes:
+                status["processes"][process.name] = {
+                    "running": process.is_running(),
+                    "ram": process.ram_usage() if process.is_running() else "N/A"
+                }
+            
+            self.status_history.append(status)
+            
+            # Keep only last 100 entries
+            if len(self.status_history) > 100:
+                self.status_history.pop(0)
+    
+    async def on_message(self, message: discord.Message):
+        """Handle custom commands"""
+        if message.author.bot:
+            return
+        
+        # Status command
+        if message.content == "!status":
+            lines = ["**Current Status:**"]
+            
+            for process in self.client.processes:
+                status_icon = "🟢" if process.is_running() else "🔴"
+                ram = process.ram_usage() if process.is_running() else "Stopped"
+                lines.append(f"{status_icon} **{process.name}**: {ram}")
+            
+            await message.channel.send("\n".join(lines))
+        
+        # History command
+        elif message.content == "!history":
+            if not self.status_history:
+                await message.channel.send("No history available yet")
+                return
+            
+            last = self.status_history[-1]
+            msg = f"**Last Check:** {last['timestamp']}\n"
+            
+            for name, data in last["processes"].items():
+                status = "🟢" if data["running"] else "🔴"
+                msg += f"{status} {name}: {data['ram']}\n"
+            
+            await message.channel.send(msg)
+    
+    def unload(self):
+        """Cancel monitoring task"""
+        if self.monitor_task:
+            self.monitor_task.cancel()
+        print(f"Status monitor unloaded. Captured {len(self.status_history)} snapshots")
+```
+
+## Addon Lifecycle
+
+```
+1. McDis-RCON starts
+   ↓
+2. Addon __init__() called
+   ↓
+3. Discord bot connects
+   ↓
+4. Addon on_ready() called
+   ↓
+5. on_message() called for each message
+   Other events triggered as they occur
+   ↓
+6. !!adreload command OR McDis-RCON exits
+   ↓
+7. Addon unload() called
+```
+
+## Accessing Processes
+
+```python
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+    
+    async def on_message(self, message: discord.Message):
+        if message.content == "!restart-all":
+            for process in self.client.processes:
+                if process.is_running():
+                    await process.restart()
+            
+            await message.channel.send("✔ All processes restarted")
+```
+
+## Folder-Based Addon
+
+For complex addons, use a folder structure:
+
+```
+McDis/.mdaddons/
+└── my_addon/
+    ├── __init__.py      ← Main addon class
+    ├── commands.py      ← Command handlers
+    ├── events.py        ← Event handlers  
+    ├── utils.py         ← Helper functions
+    └── config.json      ← Configuration
+```
+
+### __init__.py
+
+```python
+from mcdis_rcon.classes import McDisClient
+import discord
+from .commands import CommandHandler
+import json
+import os
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        
+        # Load config
+        config_path = os.path.join(
+            os.path.dirname(__file__), 
+            'config.json'
+        )
+        with open(config_path, 'r') as f:
+            self.config = json.load(f)
+        
+        # Initialize handlers
+        self.commands = CommandHandler(client, self.config)
+    
+    async def on_message(self, message: discord.Message):
+        await self.commands.handle(message)
+    
+    def unload(self):
+        self.commands.cleanup()
+```
+
+## Global vs Process-Specific
+
+| Feature | mdaddon (Global) | mdplugin (Process) |
+|---------|------------------|--------------------|
+| **Scope** | Entire McDis-RCON | Single process |
+| **Lifecycle** | Always active | Active when process runs |
+| **Location** | `.mdaddons/` | `<process>/.mdplugins/` |
+| **Reload** | `!!adreload` | `!!mdreload <process>` |
+| **Access** | All processes | Own process only |
+| **Events** | Discord events | Console + Discord events |
+
+## Best Practices
+
+<Tip>
+Use addons for global functionality (commands, monitoring, automation).
+</Tip>
+
+<Tip>
+Use plugins for process-specific features (console parsing, server commands).
+</Tip>
+
+<Warning>
+Always cancel background tasks in `unload()` to prevent resource leaks.
+</Warning>
+
+<Tip>
+Check `message.author.bot` to avoid bot loops in `on_message`.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Addon Events" href="/api/addons/events" icon="bolt">
+    Complete event reference
+  </Card>
+  <Card title="Creating Addons" href="/guides/creating-addons" icon="code">
+    Step-by-step guide with examples
+  </Card>
+  <Card title="McDisClient Class" href="/api/classes/mcdisclient" icon="discord">
+    Client API reference
+  </Card>
+</CardGroup>

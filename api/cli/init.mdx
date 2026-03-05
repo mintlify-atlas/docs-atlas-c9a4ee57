@@ -1,0 +1,97 @@
+---
+title: mcdis init
+description: Initialize a new McDis-RCON project
+icon: rocket
+---
+
+## Overview
+
+The `mcdis init` command creates a new McDis-RCON project by copying the default configuration template to your current directory.
+
+## Usage
+
+```bash
+mcdis init
+```
+
+## What It Does
+
+1. Locates the templates directory in the McDis-RCON package
+2. Copies `md_config.yml` to your current working directory
+3. Skips files that already exist (won't overwrite)
+
+## Generated Files
+
+<ParamField path="md_config.yml" type="Configuration">
+  The main configuration file for McDis-RCON. Contains:
+  - Bot token
+  - Panel channel ID
+  - Language settings
+  - Backup configuration
+  - Flask settings
+  - Process definitions (servers and networks)
+</ParamField>
+
+## Example Output
+
+When you run `mcdis init`, you'll get a new `md_config.yml` file:
+
+```yaml md_config.yml
+Bot Token:
+
+Panel ID:
+
+Language: en
+
+Backups: 3
+
+Flask:
+  Allow : false
+  IP    : '0.0.0.0'
+  Port  : 8000
+
+Processes:
+  Networks:
+    network 1:
+      start_cmd: start
+      stop_cmd : end
+      blacklist:
+        - 'example 1'
+
+  Servers:
+    server 1:
+      start_cmd: start
+      stop_cmd : stop
+      blacklist:
+        - 'example 1'
+```
+
+## Source Code
+
+From `/home/daytona/workspace/source/mcdis_rcon/scripts/cli.py:7-14`:
+
+```python
+def init():
+    """Initialize the project."""
+    templates = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'templates')
+    files_to_copy = ['md_config.yml']
+    for filename in files_to_copy:
+        src_path = os.path.join(templates, filename)
+        if not os.path.exists(filename):
+            shutil.copy(src_path, filename)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Run Command" href="/api/cli/run" icon="play">
+    Start McDis-RCON after configuration
+  </Card>
+  <Card title="Configuration Guide" href="/configuration/overview" icon="gear">
+    Learn how to configure md_config.yml
+  </Card>
+</CardGroup>
+
+<Note>
+If `md_config.yml` already exists, the `init` command will skip copying to prevent overwriting your existing configuration.
+</Note>

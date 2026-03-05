@@ -1,0 +1,397 @@
+---
+title: Tools Panel
+description: Explore the Tools panel featuring the Uploader, Flask server, and Process Manager
+icon: wrench
+---
+
+The Tools panel provides access to three powerful utilities for managing your McDis-RCON environment: the Uploader for file transfers, Flask for large downloads, and the Process Manager for system monitoring.
+
+## Accessing the Tools Panel
+
+<Steps>
+  <Step title="Open the main panel">
+    Navigate to your Discord panel channel
+  </Step>
+  
+  <Step title="Click Tools">
+    Press the **Tools** button to expand the tools menu
+  </Step>
+  
+  <Step title="Select a tool">
+    Choose from Processes, Uploader, or Flask
+  </Step>
+</Steps>
+
+![Tools Panel](https://i.imgur.com/S3jAKbE.png)
+
+## Uploader Tool
+
+The Uploader allows you to upload files to your McDis folder directly through Discord.
+
+![Uploader Interface](https://i.imgur.com/hL2tnDv.png)
+
+### Uploader Controls
+
+<CardGroup cols={2}>
+  <Card title="🔄 Reload" icon="rotate">
+    Refresh the uploader interface
+  </Card>
+  <Card title="📌 Pin Path" icon="thumbtack">
+    Set the target directory for uploads
+  </Card>
+  <Card title="Run/Close" icon="toggle-on">
+    Enable or disable the uploader
+  </Card>
+  <Card title="Overwrite Toggle" icon="files">
+    Choose whether to overwrite existing files
+  </Card>
+</CardGroup>
+
+### Using the Uploader
+
+<Steps>
+  <Step title="Set upload path">
+    Click 📌 and enter the target directory:
+    
+    ```
+    McDis/server 1/plugins
+    McDis/network 1/config
+    ```
+  </Step>
+  
+  <Step title="Enable the uploader">
+    Toggle the status to **Run**
+  </Step>
+  
+  <Step title="Choose overwrite mode">
+    - **Do Not Overwrite**: Preserves existing files with the same name
+    - **Overwrite**: Replaces existing files
+  </Step>
+  
+  <Step title="Upload files">
+    Drag and drop files into the panel channel, or use Discord's attachment feature
+  </Step>
+  
+  <Step title="Monitor progress">
+    McDis-RCON will display upload status:
+    
+    ```
+    Saving files...
+    [1/3] Uploaded files.
+    [2/3] Uploaded files.
+    [3/3] Uploaded files.
+    ✔ Files have been uploaded.
+    ```
+  </Step>
+</Steps>
+
+### Uploader Behavior
+
+**With Overwrite Enabled:**
+- All files are saved immediately
+- Existing files are replaced
+- No prompts or warnings
+
+**With Overwrite Disabled:**
+- Checks if file already exists
+- Skips existing files
+- Shows skip messages:
+  ```
+  Processing files...
+   • plugin.jar uploaded.
+   • McDis will not overwrite the file McDis/server 1/plugins/existing.jar.
+   ✔ Files have been processed.
+  ```
+
+<Warning>
+Be careful with overwrite mode when uploading configuration files. Always back up before overwriting critical files.
+</Warning>
+
+### Uploader Use Cases
+
+**Plugin Installation:**
+```bash
+# Set path to plugins folder
+📌 McDis/server 1/plugins
+# Upload .jar files
+# Restart server to load plugins
+!!restart server 1
+```
+
+**Configuration Updates:**
+```bash
+# Set path to config folder
+📌 McDis/server 1/config
+# Disable overwrite to preserve existing configs
+# Upload new configs
+```
+
+**Resource Packs:**
+```bash
+# Set path to server folder
+📌 McDis/server 1
+# Upload server-resource-pack.zip
+```
+
+<Tip>
+Disable the Uploader when not in use to prevent accidental file uploads.
+</Tip>
+
+## Flask Server Tool
+
+Flask enables downloading files larger than Discord's 5MB attachment limit.
+
+![Flask Interface](https://i.imgur.com/G1K8gP2.png)
+
+### Flask Controls
+
+<CardGroup cols={2}>
+  <Card title="🔄 Reload" icon="rotate">
+    Refresh the Flask interface
+  </Card>
+  <Card title="Run/Close" icon="power-off">
+    Start or stop the Flask web server
+  </Card>
+  <Card title="Single/Multi-Use" icon="link">
+    Configure link usage limits
+  </Card>
+  <Card title="Temporary/Persistent" icon="clock">
+    Configure link expiration
+  </Card>
+</CardGroup>
+
+### Flask Configuration
+
+Before using Flask, configure it in `md_config.yml`:
+
+```yaml md_config.yml
+Flask:
+  Allow: true
+  IP: "203.0.113.42"  # Your public IP address
+  Port: 5000          # Web server port
+```
+
+<Info>
+The IP must be a **public IP address**, not an internal network address like `192.168.x.x`. Ensure port 5000 (or your chosen port) is open in your firewall.
+</Info>
+
+### Using Flask Downloads
+
+<Steps>
+  <Step title="Enable Flask">
+    Toggle Flask to **Run** in the Tools panel
+  </Step>
+  
+  <Step title="Configure link settings">
+    Choose link behavior:
+    - **Single-Use**: Link expires after one download
+    - **Multi-Use**: Link can be used multiple times
+    - **Temporary**: Link expires after a time period
+    - **Persistent**: Link never expires
+  </Step>
+  
+  <Step title="Request a file">
+    Navigate to the file in File Manager and click **Request**
+  </Step>
+  
+  <Step title="Receive download link">
+    If the file exceeds 5MB and Flask is enabled, you'll receive a download URL:
+    
+    ```
+    http://203.0.113.42:5000/download/abc123xyz
+    ```
+  </Step>
+  
+  <Step title="Download the file">
+    Click the link to download via your web browser
+  </Step>
+</Steps>
+
+### Flask Logging
+
+All Flask activity is logged in the **Console Flask** thread:
+
+```
+[2025-03-13 14:30:22] User#1234 requested: world.zip
+[2025-03-13 14:30:45] Link abc123xyz used by IP 198.51.100.42
+[2025-03-13 14:31:00] Link abc123xyz expired (single-use)
+```
+
+Use this log to:
+- Monitor download activity
+- Track link usage
+- Identify unauthorized access attempts
+- Debug Flask issues
+
+<Warning>
+Flask exposes files over HTTP (not HTTPS). Do not use Flask for sensitive data unless you implement HTTPS separately.
+</Warning>
+
+### Flask Link Modes
+
+**Single-Use + Temporary:**
+- Link expires after first download OR after time limit
+- Most secure option
+- Ideal for one-time transfers
+
+**Multi-Use + Temporary:**
+- Link can be used multiple times within time window
+- Good for sharing with team members
+- Link expires after time limit
+
+**Multi-Use + Persistent:**
+- Link never expires
+- Can be used unlimited times
+- Use with caution (security risk)
+
+**Single-Use + Persistent:**
+- Link expires after first download
+- No time limit before first use
+- Useful for asynchronous transfers
+
+<Tip>
+Use Single-Use + Temporary for maximum security when sharing large backups.
+</Tip>
+
+## Process Manager Tool
+
+The Process Manager displays all Java processes running in your McDis folder.
+
+![Process Manager](https://i.imgur.com/72K5lBN.png)
+
+See the dedicated [Process Manager](/guides/process-manager) guide for complete details.
+
+### Quick Overview
+
+- **View all processes**: See every Java process in McDis
+- **Check memory usage**: Monitor RAM consumption
+- **Terminate processes**: Force-kill stuck processes
+- **Filter by path**: Focus on specific directories
+
+<Info>
+For detailed information on using the Process Manager, refer to the [Process Manager guide](/guides/process-manager).
+</Info>
+
+## Tools Panel Best Practices
+
+### Security Considerations
+
+**Uploader:**
+- Disable when not actively uploading
+- Use "Do Not Overwrite" mode by default
+- Verify file destinations before enabling
+
+**Flask:**
+- Only enable when downloading large files
+- Use Single-Use links when possible
+- Monitor Flask logs for suspicious activity
+- Keep Flask port closed in firewall when not in use
+- Consider implementing HTTPS for sensitive data
+
+**Process Manager:**
+- Only terminate processes you recognize
+- Use panel commands for configured servers
+- Check memory before terminating (avoid accidents)
+
+### Workflow Integration
+
+**Plugin Update Workflow:**
+```bash
+1. !!stop server 1
+2. Enable Uploader → Set path to plugins folder
+3. Upload new plugin JAR files
+4. Disable Uploader
+5. !!start server 1
+```
+
+**Large Backup Download:**
+```bash
+1. Create backup via File Manager
+2. Enable Flask (Single-Use + Temporary)
+3. Request backup file
+4. Download via Flask link
+5. Disable Flask
+```
+
+**Troubleshooting Stuck Server:**
+```bash
+1. !!stop server 1
+2. Wait 60 seconds
+3. Open Process Manager
+4. Check if server process still running
+5. Terminate via Process Manager if needed
+6. !!start server 1
+```
+
+## Troubleshooting
+
+<Accordion title="Uploader not accepting files">
+  **Checklist:**
+  - Uploader status is set to "Run"
+  - Upload path is valid McDis path
+  - Files are attached to messages in panel channel
+  - Bot has write permissions to target directory
+  
+  **Solution:**
+  ```bash
+  1. Click 🔄 to reload uploader
+  2. Verify path with 📌
+  3. Toggle Run/Close to restart
+  ```
+</Accordion>
+
+<Accordion title="Flask download links not working">
+  **Common issues:**
+  - Flask server not running (check status)
+  - Port not open in firewall
+  - Internal IP used instead of public IP
+  - Link already expired (single-use/temporary)
+  
+  **Solution:**
+  1. Verify Flask status is "Run"
+  2. Check `md_config.yml` for correct public IP
+  3. Ensure port is accessible: `telnet <IP> <PORT>`
+  4. Generate a new link if expired
+</Accordion>
+
+<Accordion title="Process Manager shows wrong processes">
+  **Problem:** Seeing processes outside McDis folder
+  
+  **Explanation:** This shouldn't happen due to path filtering
+  
+  **Solution:**
+  1. Click 🔄 to refresh
+  2. Use 📌 to filter by specific McDis subfolder
+  3. Check process working directory in details
+</Accordion>
+
+## Advanced Tips
+
+### Combining Tools
+
+**Batch Plugin Installation:**
+1. Download plugins to local machine
+2. Enable Uploader with path set to `McDis/server 1/plugins`
+3. Upload all plugins at once (drag multiple files)
+4. Verify uploads via File Manager
+5. Restart server
+
+**Secure Large File Sharing:**
+1. Create backup with sensitive data
+2. Enable Flask with Single-Use + Temporary (10 min)
+3. Generate download link
+4. Share link privately
+5. Monitor Flask logs for download completion
+6. Disable Flask immediately after download
+
+### Automation Ideas
+
+While McDis-RCON doesn't have built-in scheduling, you can:
+
+- Use Discord bots to send reminder messages for enabling/disabling tools
+- Document your upload procedures as slash commands
+- Create checklists for common tool workflows
+
+<Tip>
+Pin common upload paths in your personal notes to quickly configure the Uploader for frequent operations.
+</Tip>

@@ -1,0 +1,618 @@
+---
+title: Advanced Configuration
+description: Advanced McDis-RCON settings including Flask, backups, and optimization
+---
+
+This guide covers advanced configuration options for McDis-RCON, including the Flask download server, backup management, and performance optimization.
+
+## Flask Server Configuration
+
+The Flask server enables downloading files larger than Discord's 5MB limit.
+
+### Basic Setup
+
+```yaml
+Flask:
+  Allow: true
+  IP: '0.0.0.0'
+  Port: 8000
+```
+
+<CardGroup cols={3}>
+  <Card title="Allow" icon="toggle-on">
+    Enable/disable Flask server
+    
+    Type: Boolean
+    
+    Default: `false`
+  </Card>
+  <Card title="IP" icon="globe">
+    IP address to bind to
+    
+    Type: String
+    
+    Default: `'0.0.0.0'`
+  </Card>
+  <Card title="Port" icon="ethernet">
+    Port to listen on
+    
+    Type: Integer
+    
+    Default: `8000`
+  </Card>
+</CardGroup>
+
+### IP Address Configuration
+
+<AccordionGroup>
+  <Accordion title="Local Development (127.0.0.1)">
+    For testing on the same machine:
+    
+    ```yaml
+    Flask:
+      Allow: true
+      IP: '127.0.0.1'
+      Port: 8000
+    ```
+    
+    **Access:** Only from the same machine
+    
+    **Use case:** Testing, local development
+  </Accordion>
+  
+  <Accordion title="Local Network (0.0.0.0)">
+    For access within your local network:
+    
+    ```yaml
+    Flask:
+      Allow: true
+      IP: '0.0.0.0'
+      Port: 8000
+    ```
+    
+    **Access:** Any device on your local network
+    
+    **Use case:** Home server, local team
+  </Accordion>
+  
+  <Accordion title="Public Access (Your Public IP)">
+    For external access:
+    
+    ```yaml
+    Flask:
+      Allow: true
+      IP: '123.45.67.89'  # Your public IP
+      Port: 8000
+    ```
+    
+    **Requirements:**
+    - Port forwarding configured
+    - Firewall allows port 8000
+    - Static IP or DDNS
+    
+    **Use case:** Remote administration, distributed team
+  </Accordion>
+</AccordionGroup>
+
+### Port Selection
+
+<Warning>
+  **Port Conflicts:** Ensure the chosen port is not already in use:
+  
+  ```bash
+  # Linux
+  sudo netstat -tulpn | grep :8000
+  
+  # If in use, choose a different port
+  ```
+</Warning>
+
+**Common ports:**
+- `8000` - Default, commonly used for development
+- `8080` - Alternative HTTP port
+- `5000` - Another common Flask default
+- `3000-9000` - Generally safe range
+
+**Avoid:**
+- `80` - HTTP (requires root/admin)
+- `443` - HTTPS (requires root/admin)
+- `25565` - Minecraft default
+- Ports below 1024 (require elevated permissions)
+
+### Firewall Configuration
+
+<CodeGroup>
+```bash Ubuntu/Debian (UFW)
+# Allow Flask port
+sudo ufw allow 8000/tcp
+
+# Check status
+sudo ufw status
+```
+
+```bash CentOS/RHEL (firewalld)
+# Allow Flask port
+sudo firewall-cmd --permanent --add-port=8000/tcp
+sudo firewall-cmd --reload
+
+# Check
+sudo firewall-cmd --list-ports
+```
+
+```bash Windows Firewall
+# PowerShell (as Administrator)
+New-NetFirewallRule -DisplayName "McDis Flask" -Direction Inbound -Protocol TCP -LocalPort 8000 -Action Allow
+```
+</CodeGroup>
+
+### Router Port Forwarding
+
+For external access, configure port forwarding:
+
+<Steps>
+  <Step title="Access Router Admin">
+    Navigate to your router's admin panel (usually `192.168.1.1` or `192.168.0.1`)
+  </Step>
+  
+  <Step title="Find Port Forwarding">
+    Look for "Port Forwarding", "Virtual Server", or "NAT" settings
+  </Step>
+  
+  <Step title="Add Rule">
+    - External Port: `8000`
+    - Internal Port: `8000`
+    - Internal IP: Your server's local IP
+    - Protocol: TCP
+  </Step>
+  
+  <Step title="Save and Test">
+    Save the rule and test from an external network
+  </Step>
+</Steps>
+
+### Flask Security
+
+<CardGroup cols={2}>
+  <Card title="Single-Use Links" icon="link-slash">
+    Configure links to expire after one download
+    
+    Set in Discord: Tools → Flask → Single Use
+  </Card>
+  <Card title="Temporary Links" icon="clock">
+    Links expire automatically after time
+    
+    Set in Discord: Tools → Flask → Temporary
+  </Card>
+  <Card title="IP Restrictions" icon="shield">
+    Bind to specific IP for limited access
+    
+    ```yaml
+    IP: '192.168.1.100'
+    ```
+  </Card>
+  <Card title="Reverse Proxy" icon="server">
+    Use nginx/Apache for HTTPS and rate limiting
+    
+    Recommended for production
+  </Card>
+</CardGroup>
+
+### Flask with Reverse Proxy
+
+For production, use nginx as a reverse proxy:
+
+```nginx
+# /etc/nginx/sites-available/mcdis
+server {
+    listen 80;
+    server_name mcdis.yourdomain.com;
+    
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+With this setup:
+- McDis Flask runs on `127.0.0.1:8000` (not public)
+- Nginx handles public traffic on port 80
+- Add SSL with Let's Encrypt for HTTPS
+
+<Tip>
+  This provides better security, logging, and allows HTTPS.
+</Tip>
+
+## Backup Configuration
+
+### Retention Policy
+
+```yaml
+### Number of backups that McDis will save.
+### Valid Values: [1, 5] (inclusive)
+### Default Value: 3
+Backups: 3
+```
+
+**How it works:**
+- McDis keeps the N most recent backups per process
+- Oldest backups are automatically deleted
+- Backups are numbered 1 (newest) to N (oldest)
+
+### Choosing Backup Count
+
+<AccordionGroup>
+  <Accordion title="Backups: 1 (Minimal)">
+    **Pros:**
+    - Minimal disk usage
+    - Simple management
+    
+    **Cons:**
+    - No version history
+    - If backup fails, you have nothing
+    
+    **Use case:** Very limited disk space, frequent external backups
+  </Accordion>
+  
+  <Accordion title="Backups: 2 (Basic)">
+    **Pros:**
+    - Can roll back one version
+    - Low disk usage
+    
+    **Cons:**
+    - Limited history
+    
+    **Use case:** Small servers, tight disk space
+  </Accordion>
+  
+  <Accordion title="Backups: 3 (Recommended)">
+    **Pros:**
+    - Good balance of history and space
+    - Can recover from multiple mistakes
+    
+    **Cons:**
+    - Moderate disk usage
+    
+    **Use case:** Most servers
+  </Accordion>
+  
+  <Accordion title="Backups: 4-5 (Extended)">
+    **Pros:**
+    - Extensive version history
+    - More recovery options
+    
+    **Cons:**
+    - Higher disk usage
+    - Older backups may be less useful
+    
+    **Use case:** Critical servers, ample disk space, frequent changes
+  </Accordion>
+</AccordionGroup>
+
+### Disk Space Planning
+
+Estimate disk space needed:
+
+```
+Total space = (Server size) × (Number of backups) × (Number of servers)
+```
+
+**Example:**
+- 3 servers, 2GB each
+- `Backups: 3`
+- Total: 3 servers × 2GB × 3 backups = **18GB**
+
+<Tip>
+  Monitor disk usage regularly:
+  
+  ```bash
+  df -h
+  du -sh McDis/.mdbackups/*
+  ```
+</Tip>
+
+### Backup Compression
+
+Backups are stored as ZIP archives:
+
+- **Compression:** Standard ZIP compression (reduces size ~20-40%)
+- **Format:** `.zip` (compatible with all OS)
+- **Structure:** Entire process folder is compressed
+
+## Performance Optimization
+
+### Console Output Tuning
+
+Reduce console relay overhead:
+
+```yaml
+blacklist:
+  - 'Can\'t keep up'
+  - 'moved too quickly'
+  - 'logged in'
+  - 'logged out'
+  - 'lost connection'
+  - 'ServerConnector'
+```
+
+**Benefits:**
+- Reduced Discord API calls
+- Less bandwidth usage
+- Faster console processing
+- Cleaner console threads
+
+### Memory Allocation
+
+**McDis-RCON Memory:**
+- Base usage: ~50-100MB
+- Per process: ~10-20MB
+- Console buffers: ~5MB per active process
+
+**Total System Memory Planning:**
+```
+Total RAM needed = OS (2-4GB) + 
+                   McDis (100MB) + 
+                   Server 1 (Xmx) + 
+                   Server 2 (Xmx) + ...
+```
+
+**Example for 16GB system:**
+- OS: 4GB
+- McDis: 0.5GB
+- Available for servers: 11.5GB
+- Allocate: 8GB server + 2GB proxy = 10GB
+- Remaining: 1.5GB buffer
+
+### Process Priority
+
+On Linux, you can set process priority:
+
+```bash
+# Start McDis with nice (lower priority)
+nice -n 10 mcdis run
+
+# Or set priority after starting
+renice -n 10 -p $(pgrep -f "mcdis run")
+```
+
+<Note>
+  Lower priority (higher nice value) ensures Minecraft servers get CPU priority over McDis.
+</Note>
+
+### Multiple McDis Instances
+
+You can run multiple McDis instances:
+
+<Warning>
+  **Do NOT run multiple instances with the same Panel ID!** This will cause conflicts.
+</Warning>
+
+**Correct setup:**
+```bash
+# Instance 1
+cd /path/to/mcdis1
+mcdis run  # Uses Panel ID: 111111111
+
+# Instance 2  
+cd /path/to/mcdis2
+mcdis run  # Uses Panel ID: 222222222
+```
+
+Each instance manages different servers in different folders with different panel channels.
+
+## Environment-Specific Configurations
+
+### Development Environment
+
+```yaml
+# dev_config.yml
+Bot Token: DEV_BOT_TOKEN
+Panel ID: 111111111111  # Dev channel
+Language: en
+Backups: 5  # Keep more for testing
+
+Flask:
+  Allow: true
+  IP: '127.0.0.1'  # Local only
+  Port: 8000
+
+Processes:
+  Servers:
+    test_server:
+      start_cmd: java -Xms1G -Xmx2G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: []  # See everything during development
+```
+
+### Production Environment
+
+```yaml
+# md_config.yml
+Bot Token: PROD_BOT_TOKEN
+Panel ID: 999999999999  # Prod channel
+Language: en
+Backups: 3
+
+Flask:
+  Allow: true
+  IP: '0.0.0.0'  # Public access
+  Port: 8000
+
+Processes:
+  Networks:
+    velocity:
+      start_cmd: java -Xms1G -Xmx2G -XX:+UseG1GC -jar velocity.jar
+      stop_cmd: end
+      blacklist:
+        - 'logged in'
+        - 'has disconnected'
+        - 'ServerConnector'
+        
+  Servers:
+    lobby:
+      start_cmd: java -Xms4G -Xmx4G -XX:+UseG1GC -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist:
+        - 'Can\'t keep up'
+        - 'moved too quickly'
+```
+
+## Language Customization
+
+McDis supports English and Spanish:
+
+```yaml
+Language: en  # English (default)
+# or
+Language: es  # Spanish
+```
+
+**What changes:**
+- Discord panel messages
+- Button labels
+- Error messages
+- Command responses
+- Console output from McDis
+
+**What doesn't change:**
+- Minecraft server console (depends on server config)
+- Plugin output
+- Your process names
+
+## Configuration Templates
+
+### Small Home Server
+
+```yaml
+Bot Token: YOUR_TOKEN
+Panel ID: YOUR_CHANNEL_ID
+Language: en
+Backups: 2
+
+Flask:
+  Allow: false  # Not needed for small files
+  IP: '0.0.0.0'
+  Port: 8000
+
+Processes:
+  Networks:
+  
+  Servers:
+    vanilla:
+      start_cmd: java -Xms2G -Xmx4G -jar server.jar nogui
+      stop_cmd: stop
+      blacklist:
+        - 'Can\'t keep up'
+```
+
+### Large Multi-Server Network
+
+```yaml
+Bot Token: YOUR_TOKEN
+Panel ID: YOUR_CHANNEL_ID
+Language: en
+Backups: 3
+
+Flask:
+  Allow: true
+  IP: '123.45.67.89'
+  Port: 8000
+
+Processes:
+  Networks:
+    velocity:
+      start_cmd: java -Xms2G -Xmx3G -XX:+UseG1GC -jar velocity.jar
+      stop_cmd: end
+      blacklist: ['logged in', 'has disconnected', 'ServerConnector']
+        
+  Servers:
+    lobby:
+      start_cmd: java -Xms4G -Xmx4G -XX:+UseG1GC -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: ['Can\'t keep up']
+      
+    survival:
+      start_cmd: java -Xms12G -Xmx12G -XX:+UseG1GC -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: ['Can\'t keep up', 'moved too quickly']
+      
+    creative:
+      start_cmd: java -Xms6G -Xmx6G -XX:+UseG1GC -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: ['Can\'t keep up']
+      
+    minigames:
+      start_cmd: java -Xms4G -Xmx8G -XX:+UseG1GC -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: ['Can\'t keep up']
+```
+
+## Troubleshooting Advanced Configuration
+
+<AccordionGroup>
+  <Accordion title="Flask server won't start">
+    **Check:**
+    - Port already in use: `netstat -tulpn | grep :8000`
+    - Firewall blocking port
+    - Invalid IP address
+    - Permission issues (ports < 1024)
+    
+    **Solution:**
+    - Choose different port
+    - Configure firewall
+    - Verify IP in config
+    - Use ports ≥ 1024
+  </Accordion>
+  
+  <Accordion title="Can't access Flask from external network">
+    **Check:**
+    - Port forwarding configured?
+    - Firewall allows incoming?
+    - Using public IP, not 127.0.0.1?
+    - ISP blocking port?
+    
+    **Solution:**
+    - Set up port forwarding
+    - Open firewall port
+    - Use `'0.0.0.0'` or public IP
+    - Try different port
+  </Accordion>
+  
+  <Accordion title="Backups filling disk">
+    **Solution:**
+    - Reduce `Backups` setting
+    - Clean up old backups manually
+    - Increase disk space
+    - Compress/archive old backups externally
+  </Accordion>
+  
+  <Accordion title="High memory usage">
+    **Possible causes:**
+    - Too many processes
+    - Console output flooding
+    - Memory leak (rare)
+    
+    **Solution:**
+    - Reduce number of processes
+    - Add more to blacklist
+    - Restart McDis periodically
+  </Accordion>
+</AccordionGroup>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Configuration Overview" icon="book" href="/configuration/overview">
+    Complete configuration reference
+  </Card>
+  <Card title="Process Setup" icon="server" href="/configuration/process-setup">
+    Configure servers and networks
+  </Card>
+  <Card title="File Manager" icon="folder" href="/features/file-manager">
+    Using Flask downloads
+  </Card>
+  <Card title="Backup System" icon="database" href="/features/backup-system">
+    Backup management details
+  </Card>
+</CardGroup>

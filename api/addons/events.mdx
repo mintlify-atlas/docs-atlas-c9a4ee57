@@ -1,0 +1,443 @@
+---
+title: Addon Events
+description: Complete reference for mdaddon event handlers
+icon: bolt
+---
+
+## Overview
+
+Addons can listen to all Discord.py events by implementing methods with the event name (no `listener_` prefix needed for addons).
+
+## Core Events
+
+### on_ready()
+
+Called when the bot successfully connects to Discord.
+
+```python
+async def on_ready(self):
+    """Bot is connected and ready"""
+    print(f"Logged in as {self.client.user}")
+    print(f"Managing {len(self.client.processes)} processes")
+    
+    # Start background tasks
+    self.task = asyncio.create_task(self.background_work())
+```
+
+<Info>
+Use `on_ready()` for initialization that requires Discord connection.
+</Info>
+
+### on_message(message)
+
+Called for every Discord message.
+
+<ParamField path="message" type="discord.Message" required>
+  Discord message object
+</ParamField>
+
+```python
+async def on_message(self, message: discord.Message):
+    """Handle all Discord messages"""
+    if message.author.bot:
+        return
+    
+    if message.content == "!ping":
+        await message.channel.send("🏓 Pong!")
+```
+
+**Message attributes:**
+- `message.content` - Message text
+- `message.author` - User who sent it
+- `message.channel` - Channel it was sent in
+- `message.guild` - Server (guild) object
+- `message.attachments` - File attachments
+- `message.mentions` - Mentioned users
+- `message.created_at` - Timestamp
+
+## Message Events
+
+### on_message_edit(before, after)
+
+Called when a message is edited.
+
+<ParamField path="before" type="discord.Message">
+  Message before editing
+</ParamField>
+
+<ParamField path="after" type="discord.Message">
+  Message after editing
+</ParamField>
+
+```python
+async def on_message_edit(self, before, after):
+    """Track message edits"""
+    if before.content != after.content:
+        log = f"Message edited by {after.author.name}:\n"
+        log += f"Before: {before.content}\n"
+        log += f"After: {after.content}"
+        print(log)
+```
+
+### on_message_delete(message)
+
+Called when a message is deleted.
+
+```python
+async def on_message_delete(self, message):
+    """Log deleted messages"""
+    print(f"Deleted message from {message.author.name}: {message.content}")
+```
+
+### on_bulk_message_delete(messages)
+
+Called when multiple messages are deleted at once.
+
+```python
+async def on_bulk_message_delete(self, messages):
+    """Track bulk deletions"""
+    print(f"{len(messages)} messages were bulk deleted")
+```
+
+## Reaction Events
+
+### on_reaction_add(reaction, user)
+
+Called when a reaction is added to a message.
+
+<ParamField path="reaction" type="discord.Reaction">
+  The reaction object
+</ParamField>
+
+<ParamField path="user" type="discord.User">
+  User who added the reaction
+</ParamField>
+
+```python
+async def on_reaction_add(self, reaction, user):
+    """Handle reactions"""
+    if user.bot:
+        return
+    
+    if reaction.emoji == "📌":
+        # Pin the message when pinned emoji is added
+        await reaction.message.pin()
+        await reaction.message.channel.send(
+            f"{user.name} pinned a message"
+        )
+```
+
+### on_reaction_remove(reaction, user)
+
+Called when a reaction is removed.
+
+```python
+async def on_reaction_remove(self, reaction, user):
+    """Handle reaction removal"""
+    if reaction.emoji == "📌":
+        await reaction.message.unpin()
+```
+
+### on_reaction_clear(message, reactions)
+
+Called when all reactions are cleared from a message.
+
+```python
+async def on_reaction_clear(self, message, reactions):
+    """Track reaction clears"""
+    print(f"All reactions cleared from message: {message.id}")
+```
+
+## Member Events
+
+### on_member_join(member)
+
+Called when a member joins the Discord server.
+
+<ParamField path="member" type="discord.Member">
+  Member who joined
+</ParamField>
+
+```python
+async def on_member_join(self, member):
+    """Welcome new members"""
+    welcome_channel = self.client.get_channel(1234567890)
+    if welcome_channel:
+        await welcome_channel.send(
+            f"👋 Welcome {member.mention}! "
+            f"You are member #{len(member.guild.members)}"
+        )
+```
+
+### on_member_remove(member)
+
+Called when a member leaves or is kicked.
+
+```python
+async def on_member_remove(self, member):
+    """Track departures"""
+    print(f"{member.name} left the server")
+    await self.client.panel.send(
+        f"👋 {member.name} has left the server"
+    )
+```
+
+### on_member_update(before, after)
+
+Called when a member is updated (roles, nickname, etc.).
+
+```python
+async def on_member_update(self, before, after):
+    """Track member changes"""
+    # Nickname changed
+    if before.nick != after.nick:
+        print(f"{before.name} changed nickname: "
+              f"{before.nick} → {after.nick}")
+    
+    # Roles changed
+    if before.roles != after.roles:
+        added = set(after.roles) - set(before.roles)
+        removed = set(before.roles) - set(after.roles)
+        
+        if added:
+            print(f"Roles added to {after.name}: "
+                  f"{', '.join(r.name for r in added)}")
+```
+
+## Voice Events
+
+### on_voice_state_update(member, before, after)
+
+Called when someone's voice state changes.
+
+<ParamField path="member" type="discord.Member">
+  Member whose voice state changed
+</ParamField>
+
+<ParamField path="before" type="discord.VoiceState">
+  Voice state before the change
+</ParamField>
+
+<ParamField path="after" type="discord.VoiceState">
+  Voice state after the change
+</ParamField>
+
+```python
+async def on_voice_state_update(self, member, before, after):
+    """Track voice activity"""
+    # Joined voice channel
+    if before.channel is None and after.channel is not None:
+        print(f"{member.name} joined voice: {after.channel.name}")
+    
+    # Left voice channel
+    elif before.channel is not None and after.channel is None:
+        print(f"{member.name} left voice: {before.channel.name}")
+    
+    # Moved channels
+    elif before.channel != after.channel:
+        print(f"{member.name} moved: "
+              f"{before.channel.name} → {after.channel.name}")
+    
+    # Muted/unmuted
+    if before.self_mute != after.self_mute:
+        status = "muted" if after.self_mute else "unmuted"
+        print(f"{member.name} {status}")
+```
+
+## Channel Events
+
+### on_guild_channel_create(channel)
+
+Called when a channel is created.
+
+```python
+async def on_guild_channel_create(self, channel):
+    """Track channel creation"""
+    print(f"Channel created: #{channel.name}")
+```
+
+### on_guild_channel_delete(channel)
+
+Called when a channel is deleted.
+
+```python
+async def on_guild_channel_delete(self, channel):
+    """Track channel deletion"""
+    print(f"Channel deleted: #{channel.name}")
+```
+
+### on_guild_channel_update(before, after)
+
+Called when a channel is updated.
+
+```python
+async def on_guild_channel_update(self, before, after):
+    """Track channel changes"""
+    if before.name != after.name:
+        print(f"Channel renamed: {before.name} → {after.name}")
+```
+
+## Thread Events
+
+### on_thread_create(thread)
+
+Called when a thread is created.
+
+```python
+async def on_thread_create(self, thread):
+    """Auto-join threads"""
+    await thread.join()
+    print(f"Joined thread: {thread.name}")
+```
+
+### on_thread_delete(thread)
+
+Called when a thread is deleted.
+
+```python
+async def on_thread_delete(self, thread):
+    """Track thread deletion"""
+    print(f"Thread deleted: {thread.name}")
+```
+
+## Role Events
+
+### on_guild_role_create(role)
+
+Called when a role is created.
+
+```python
+async def on_guild_role_create(self, role):
+    """Track role creation"""
+    print(f"Role created: {role.name}")
+```
+
+### on_guild_role_delete(role)
+
+Called when a role is deleted.
+
+```python
+async def on_guild_role_delete(self, role):
+    """Track role deletion"""
+    print(f"Role deleted: {role.name}")
+```
+
+## Complete Event List
+
+All Discord.py events are available:
+
+| Category | Events |
+|----------|--------|
+| **Connection** | `on_ready`, `on_resumed`, `on_disconnect` |
+| **Messages** | `on_message`, `on_message_edit`, `on_message_delete`, `on_bulk_message_delete` |
+| **Reactions** | `on_reaction_add`, `on_reaction_remove`, `on_reaction_clear`, `on_reaction_clear_emoji` |
+| **Members** | `on_member_join`, `on_member_remove`, `on_member_update`, `on_member_ban`, `on_member_unban` |
+| **Channels** | `on_guild_channel_create`, `on_guild_channel_delete`, `on_guild_channel_update`, `on_private_channel_create` |
+| **Threads** | `on_thread_create`, `on_thread_delete`, `on_thread_update`, `on_thread_member_join`, `on_thread_member_remove` |
+| **Voice** | `on_voice_state_update` |
+| **Roles** | `on_guild_role_create`, `on_guild_role_delete`, `on_guild_role_update` |
+| **Guild** | `on_guild_join`, `on_guild_remove`, `on_guild_update` |
+
+<Tip>
+See the [Discord.py event reference](https://discordpy.readthedocs.io/en/stable/api.html#event-reference) for complete documentation.
+</Tip>
+
+## Event Source Code
+
+From `/home/daytona/workspace/source/mcdis_rcon/classes/McDisClient.py:806-817`:
+
+```python
+async def call_addons(self, function: str, args: tuple = tuple()):
+    for name, addon in self.addons.items():
+        try:
+            func = getattr(addon, function, None)
+            if func:
+                await func(*args)
+                
+        except Exception:
+            await self.error_report(
+                title=f'{function}() of {addon}',
+                error=traceback.format_exc()
+            )
+```
+
+## Pattern: Command Router
+
+```python
+class mdaddon:
+    def __init__(self, client):
+        self.client = client
+        self.prefix = "!"
+    
+    async def on_message(self, message):
+        if message.author.bot:
+            return
+        
+        if not message.content.startswith(self.prefix):
+            return
+        
+        command = message.content[len(self.prefix):].split()[0]
+        
+        if command == "help":
+            await self.cmd_help(message)
+        elif command == "status":
+            await self.cmd_status(message)
+        elif command == "restart":
+            await self.cmd_restart(message)
+    
+    async def cmd_help(self, message):
+        await message.channel.send("Available commands: !help, !status, !restart")
+```
+
+## Pattern: Event Logging
+
+```python
+import json
+from datetime import datetime
+
+class mdaddon:
+    def __init__(self, client):
+        self.client = client
+        self.log_file = "event_log.json"
+        self.events = []
+    
+    def log_event(self, event_type, data):
+        entry = {
+            "timestamp": datetime.now().isoformat(),
+            "type": event_type,
+            "data": data
+        }
+        self.events.append(entry)
+        
+        # Save periodically
+        if len(self.events) % 10 == 0:
+            self.save_log()
+    
+    def save_log(self):
+        with open(self.log_file, 'w') as f:
+            json.dump(self.events, f, indent=2)
+    
+    async def on_member_join(self, member):
+        self.log_event("member_join", {"name": member.name, "id": member.id})
+    
+    async def on_message(self, message):
+        if not message.author.bot:
+            self.log_event("message", {"author": message.author.name})
+    
+    def unload(self):
+        self.save_log()
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="mdaddon Class" href="/api/addons/mdaddon" icon="puzzle-piece">
+    Addon class reference
+  </Card>
+  <Card title="Creating Addons" href="/guides/creating-addons" icon="code">
+    Complete addon examples
+  </Card>
+  <Card title="Discord.py Docs" href="https://discordpy.readthedocs.io/" icon="book">
+    Full Discord.py documentation
+  </Card>
+</CardGroup>

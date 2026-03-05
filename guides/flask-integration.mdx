@@ -1,0 +1,498 @@
+---
+title: Flask Integration
+description: Use the Flask server to download large files that exceed Discord's size limits
+icon: flask
+---
+
+McDis-RCON includes a Flask-based web server that enables downloading files larger than Discord's 5MB attachment limit. This is essential for downloading backups, world files, and other large resources.
+
+## What is Flask Integration?
+
+Flask integration provides:
+
+- **Large file downloads**: Bypass Discord's 5MB limit
+- **Custom download links**: Generate unique URLs for file access
+- **Configurable expiration**: Single-use or persistent links
+- **Activity logging**: Track all download requests
+- **HTTP file serving**: Simple web server for file delivery
+
+<Info>
+Flask is a lightweight Python web framework. McDis-RCON uses it to serve files over HTTP.
+</Info>
+
+## Configuration
+
+Enable Flask in `md_config.yml`:
+
+```yaml md_config.yml
+Bot Token: "your_discord_bot_token"
+Panel ID: 1234567890
+Language: "en"
+Backups: 3
+
+Flask:
+  Allow: true                # Enable Flask server
+  IP: "203.0.113.42"         # Your PUBLIC IP address
+  Port: 5000                 # Web server port
+
+Processes:
+  # Your servers here
+```
+
+### Configuration Parameters
+
+<CardGroup cols={2}>
+  <Card title="Allow" icon="toggle-on">
+    **Type:** Boolean  
+    **Options:** `true` / `false`  
+    **Purpose:** Enable or disable Flask integration
+  </Card>
+  <Card title="IP" icon="network-wired">
+    **Type:** String  
+    **Format:** IPv4 address  
+    **Purpose:** Public IP for download URLs  
+    **Example:** `"203.0.113.42"`
+  </Card>
+  <Card title="Port" icon="door-open">
+    **Type:** Integer  
+    **Default:** `5000`  
+    **Purpose:** TCP port for Flask server  
+    **Range:** 1024-65535
+  </Card>
+</CardGroup>
+
+<Warning>
+The `IP` field must be your **public IP address**, not an internal network IP like `192.168.x.x` or `10.x.x.x`. Use a service like [whatismyip.com](https://whatismyip.com) to find your public IP.
+</Warning>
+
+## Network Setup
+
+### Port Forwarding
+
+To make Flask accessible from the internet:
+
+<Steps>
+  <Step title="Access router admin panel">
+    Usually at `192.168.1.1` or `192.168.0.1`
+  </Step>
+  
+  <Step title="Find port forwarding settings">
+    Often under "NAT", "Port Forwarding", or "Virtual Servers"
+  </Step>
+  
+  <Step title="Create port forward rule">
+    - **External Port:** 5000
+    - **Internal Port:** 5000
+    - **Internal IP:** Your server's local IP (e.g., `192.168.1.100`)
+    - **Protocol:** TCP
+  </Step>
+  
+  <Step title="Save and apply">
+    Router will now forward external requests to your McDis-RCON server
+  </Step>
+</Steps>
+
+### Firewall Configuration
+
+**Linux (UFW):**
+```bash
+sudo ufw allow 5000/tcp
+sudo ufw reload
+```
+
+**Linux (iptables):**
+```bash
+sudo iptables -A INPUT -p tcp --dport 5000 -j ACCEPT
+sudo iptables-save
+```
+
+**Windows Firewall:**
+1. Open Windows Defender Firewall
+2. Click "Advanced settings"
+3. Select "Inbound Rules" → "New Rule"
+4. Choose "Port" → TCP → Specific local ports: `5000`
+5. Allow the connection
+
+<Tip>
+Test port accessibility using [canyouseeme.org](https://canyouseeme.org/) with port 5000.
+</Tip>
+
+## Using Flask
+
+### Enabling Flask Server
+
+<Steps>
+  <Step title="Open Tools panel">
+    Click the **Tools** button in Discord
+  </Step>
+  
+  <Step title="Select Flask">
+    Choose the **Flask** option
+    
+    ![Flask Interface](https://i.imgur.com/G1K8gP2.png)
+  </Step>
+  
+  <Step title="Configure settings">
+    Choose link behavior:
+    - **Single-Use** vs **Multi-Use**
+    - **Temporary** vs **Persistent**
+  </Step>
+  
+  <Step title="Start Flask">
+    Toggle status to **Run**
+  </Step>
+</Steps>
+
+### Flask Controls
+
+<CardGroup cols={2}>
+  <Card title="🔄 Reload" icon="rotate">
+    Refresh the Flask interface
+  </Card>
+  <Card title="Run/Close" icon="power-off">
+    Start or stop the Flask web server
+  </Card>
+  <Card title="Single/Multi-Use" icon="link">
+    Configure whether links expire after first download
+  </Card>
+  <Card title="Temporary/Persistent" icon="clock">
+    Configure whether links have a time-based expiration
+  </Card>
+</CardGroup>
+
+## Download Link Modes
+
+### Single-Use Links
+
+- Link expires after **one download**
+- Most secure option
+- Ideal for one-time file transfers
+
+**Use case:** Sharing a backup with a specific team member
+
+### Multi-Use Links
+
+- Link can be used **multiple times**
+- No download count limit
+- Useful for team collaboration
+
+**Use case:** Distributing a resource pack to multiple players
+
+### Temporary Links
+
+- Link expires after a **time period** (configurable)
+- Automatic cleanup
+- Good for scheduled downloads
+
+**Use case:** Allowing downloads during a maintenance window
+
+### Persistent Links
+
+- Link **never expires**
+- Remains active indefinitely
+- Use with caution
+
+**Use case:** Long-term file hosting (not recommended for security)
+
+## Recommended Combinations
+
+| Scenario | Link Type | Expiration |
+|----------|-----------|------------|
+| One-time backup share | Single-Use | Temporary |
+| Team file distribution | Multi-Use | Temporary |
+| Emergency access | Single-Use | Persistent |
+| Public resource | Multi-Use | Persistent |
+
+<Warning>
+**Multi-Use + Persistent** links never expire and can be used unlimited times. Use this combination with extreme caution as it poses security risks.
+</Warning>
+
+## Downloading Files
+
+<Steps>
+  <Step title="Enable Flask">
+    Ensure Flask server is running (status: **Run**)
+  </Step>
+  
+  <Step title="Navigate to file">
+    Use File Manager to find the file you want to download
+  </Step>
+  
+  <Step title="Request the file">
+    Click the **Request** button
+  </Step>
+  
+  <Step title="Receive download link">
+    If file is over 5MB and Flask is enabled, you'll get a URL:
+    
+    ```
+    Download link: http://203.0.113.42:5000/download/abc123xyz
+    Click to download: your_backup.zip
+    ```
+  </Step>
+  
+  <Step title="Download via browser">
+    Click the link or paste it into a web browser to download
+  </Step>
+</Steps>
+
+<Note>
+Files under 5MB are sent directly via Discord attachment, even if Flask is enabled.
+</Note>
+
+## Flask Logging
+
+All Flask activity is logged in the **Console Flask** thread:
+
+```
+[2025-03-13 14:30:22] Flask server started on 203.0.113.42:5000
+[2025-03-13 14:31:15] User#1234 requested: McDis/SMP/.mdbackups/SMP 1.zip
+[2025-03-13 14:31:18] Download link generated: abc123xyz
+[2025-03-13 14:31:45] Link abc123xyz accessed by IP 198.51.100.42
+[2025-03-13 14:31:48] File transfer complete: SMP 1.zip (2.3 GB)
+[2025-03-13 14:31:48] Link abc123xyz expired (single-use)
+```
+
+### What's Logged
+
+- Server start/stop events
+- File request originator (Discord user)
+- Generated link IDs
+- Download IP addresses
+- File transfer completion
+- Link expiration events
+
+<Tip>
+Monitor the Flask console thread to track download activity and detect unauthorized access attempts.
+</Tip>
+
+## Security Considerations
+
+### HTTP vs HTTPS
+
+McDis-RCON's Flask server uses **HTTP**, not HTTPS:
+
+- ✅ **Pros:** Simple setup, no certificate required
+- ❌ **Cons:** Traffic is unencrypted, visible to network observers
+
+<Warning>
+**Do not use Flask for sensitive files** unless you implement HTTPS separately (e.g., using a reverse proxy like nginx with SSL certificates).
+</Warning>
+
+### Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Disable when idle" icon="power-off">
+    Only enable Flask when actively downloading files
+  </Card>
+  <Card title="Use Single-Use links" icon="link-slash">
+    Prevent link sharing and replay attacks
+  </Card>
+  <Card title="Monitor logs" icon="eye">
+    Check Flask console for suspicious IPs
+  </Card>
+  <Card title="Temporary links" icon="clock">
+    Add time-based expiration for added security
+  </Card>
+  <Card title="Firewall rules" icon="shield">
+    Restrict port 5000 to known IPs if possible
+  </Card>
+  <Card title="VPN/private network" icon="lock">
+    Use VPN for sensitive file transfers
+  </Card>
+</CardGroup>
+
+### IP Whitelisting
+
+For advanced security, restrict Flask access to specific IPs:
+
+**Linux (iptables):**
+```bash
+# Allow only specific IP
+sudo iptables -A INPUT -p tcp --dport 5000 -s 198.51.100.42 -j ACCEPT
+# Drop all other connections
+sudo iptables -A INPUT -p tcp --dport 5000 -j DROP
+```
+
+## Troubleshooting
+
+<Accordion title="Download link doesn't work">
+  **Symptoms:** Clicking link shows "Connection refused" or timeout
+  
+  **Possible causes:**
+  1. Flask server not running
+  2. Port not forwarded in router
+  3. Firewall blocking port 5000
+  4. Wrong IP in configuration
+  
+  **Solutions:**
+  - Verify Flask status is **Run** in Tools panel
+  - Check port forwarding in router settings
+  - Test firewall: `sudo ufw status` (Linux)
+  - Confirm public IP: [whatismyip.com](https://whatismyip.com)
+  - Test port: [canyouseeme.org](https://canyouseeme.org/)
+</Accordion>
+
+<Accordion title="Link expired too quickly">
+  **Problem:** Link expired before download completed
+  
+  **Causes:**
+  - Single-Use mode with interrupted download
+  - Temporary mode with short timeout
+  
+  **Solutions:**
+  1. Switch to Multi-Use mode for large files
+  2. Use Persistent mode to remove time limit
+  3. Request a new link
+  4. Improve internet connection speed
+</Accordion>
+
+<Accordion title="Internal IP in download link">
+  **Problem:** Link shows `192.168.x.x` instead of public IP
+  
+  **Cause:** Wrong IP configured in `md_config.yml`
+  
+  **Solution:**
+  1. Find public IP: [whatismyip.com](https://whatismyip.com)
+  2. Update `md_config.yml`:
+     ```yaml
+     Flask:
+       IP: "203.0.113.42"  # Use your public IP
+     ```
+  3. Restart McDis-RCON
+</Accordion>
+
+<Accordion title="Flask console shows errors">
+  **Common errors:**
+  
+  - `Address already in use` → Port 5000 is occupied
+    - Solution: Change port in config or stop conflicting service
+  
+  - `Permission denied` → Insufficient permissions
+    - Solution: Run McDis-RCON with appropriate permissions
+  
+  - `Connection reset` → Download interrupted
+    - Solution: Generate new link and try again
+</Accordion>
+
+## Advanced Configuration
+
+### Using a Different Port
+
+If port 5000 is occupied:
+
+```yaml md_config.yml
+Flask:
+  Allow: true
+  IP: "203.0.113.42"
+  Port: 8080  # Use alternative port
+```
+
+Remember to:
+1. Update port forwarding rule
+2. Update firewall rules
+3. Restart McDis-RCON
+
+### HTTPS with Reverse Proxy
+
+For production use, implement HTTPS using nginx:
+
+**nginx configuration:**
+```nginx
+server {
+    listen 443 ssl;
+    server_name mcdis.example.com;
+    
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+    
+    location / {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+Update `md_config.yml`:
+```yaml
+Flask:
+  IP: "mcdis.example.com"  # Domain instead of IP
+  Port: 443                # HTTPS port
+```
+
+<Info>
+Reverse proxy configuration requires SSL certificates (e.g., from Let's Encrypt) and web server expertise.
+</Info>
+
+## Use Cases
+
+### 1. Downloading Large Backups
+
+```bash
+# Scenario: 5GB world backup
+1. !!stop SMP
+2. Create backup via File Manager
+3. Enable Flask (Single-Use + Temporary)
+4. Request SMP 1.zip
+5. Download via Flask link
+6. Disable Flask
+```
+
+### 2. Distributing Server Files
+
+```bash
+# Scenario: Share modpack with players
+1. Upload modpack to McDis folder
+2. Enable Flask (Multi-Use + Temporary)
+3. Request modpack.zip
+4. Share link with players
+5. Players download modpack
+6. Disable Flask after distribution period
+```
+
+### 3. Emergency File Access
+
+```bash
+# Scenario: Need backup while away from server
+1. Enable Flask (Single-Use + Persistent)
+2. Request backup file
+3. Save link securely
+4. Download from any location
+5. Link expires after use
+```
+
+## Performance Considerations
+
+### Bandwidth
+
+Flask downloads consume bandwidth:
+- Large backup (5GB) = 5GB upload bandwidth
+- Multiple concurrent downloads = multiplicative usage
+
+<Warning>
+Check your ISP's upload bandwidth limits. Downloading large files can saturate your connection.
+</Warning>
+
+### Concurrent Downloads
+
+Flask can handle multiple simultaneous downloads, limited by:
+- Server CPU and RAM
+- Network bandwidth
+- Disk I/O speed
+
+**Optimization:**
+- Use SSD for faster file access
+- Limit concurrent downloads
+- Schedule large transfers during off-peak hours
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="File Manager" href="/guides/file-manager" icon="folder">
+    Learn to navigate and manage files
+  </Card>
+  <Card title="Backup Management" href="/guides/backup-management" icon="floppy-disk">
+    Create and restore backups
+  </Card>
+</CardGroup>

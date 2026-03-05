@@ -1,80 +1,253 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart Guide
+description: Get your first Minecraft server running with McDis-RCON in minutes
 ---
 
-## Get started in three steps
+This guide will help you get McDis-RCON up and running quickly with your first Minecraft server.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before starting, ensure you have:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+- Python 3.8 or higher installed
+- A Discord bot token ([create one here](https://discordpy.readthedocs.io/en/stable/discord.html))
+- A Discord channel for the McDis panel
+- A Minecraft server ready to manage
+
+<Warning>
+  It is **strongly recommended** to grant administrator permissions to your Discord bot to avoid issues with panel generation and thread management.
+</Warning>
+
+## Step-by-Step Setup
+
+<Steps>
+  <Step title="Install McDis-RCON">
+    Install the package using pip:
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    ```bash
+    pip install mcdis-rcon
+    ```
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    <Tip>
+      On some systems, you may need to use `pip3` instead of `pip`.
+    </Tip>
+  </Step>
 
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+  <Step title="Navigate to Your Server Directory">
+    Move to the directory where you want to store your server files:
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```bash
+    cd /path/to/your/servers
+    ```
+    
+    This directory will become your "McDis" folder—the root where all managed servers will be stored.
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Initialize Configuration">
+    Generate the configuration file:
+    
+    ```bash
+    mcdis init
+    ```
+    
+    This creates a `md_config.yml` file in your current directory.
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Configure Your Bot Token and Panel">
+    Open `md_config.yml` and add your Discord bot token and panel channel ID:
+    
+    ```yaml
+    Bot Token: YOUR_BOT_TOKEN_HERE
+    Panel ID: YOUR_CHANNEL_ID_HERE
+    Language: en
+    Backups: 3
+    ```
+    
+    <Info>
+      To get a channel ID, enable Developer Mode in Discord (User Settings → Advanced → Developer Mode), then right-click a channel and select "Copy ID".
+    </Info>
+  </Step>
 
-### Step 3: Go live
+  <Step title="Configure Your First Server">
+    In the same `md_config.yml` file, configure your Minecraft server:
+    
+    ```yaml
+    Processes:
+      Servers:
+        my_server:
+          start_cmd: java -Xms2G -Xmx4G -jar server.jar nogui
+          stop_cmd: stop
+          blacklist:
+            - 'Debug'
+            - 'Can\'t keep up'
+      Networks:
+    ```
+    
+    Replace:
+    - `my_server` with your desired server name
+    - `start_cmd` with your server's start command
+    - `stop_cmd` with your server's stop command (usually `stop` or `end`)
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Prepare Your Server Files">
+    Before running McDis-RCON, create a folder matching your server name and place your server files inside:
+    
+    ```bash
+    mkdir my_server
+    cd my_server
+    # Copy your server.jar and other necessary files here
+    cd ..
+    ```
+    
+    Your directory structure should look like:
+    ```
+    /path/to/your/servers/
+    ├── md_config.yml
+    └── my_server/
+        ├── server.jar
+        ├── server.properties
+        └── ...
+    ```
+  </Step>
 
-## Next steps
+  <Step title="Start McDis-RCON">
+    Launch McDis-RCON:
+    
+    ```bash
+    mcdis run
+    ```
+    
+    You should see output like:
+    
+    ```bash
+    Initializing McDis RCON v0.4.30a...
+    Your configuration has been loaded successfully.
+    [INFO] discord.client: logging in using static token
+    [INFO] discord.gateway: Shard ID None has connected to Gateway
+    Logged in as Your Bot#1234!
+       • Creating objects
+         -> my_server
+       • Loaded Discord events
+       • Loaded server panel
+    Loading Complete
+    
+    Commands: start, stop, restart, kill, mdreload, adreload, status, exit
+    >>
+    ```
+  </Step>
 
-Now that you have your docs running, explore these key features:
+  <Step title="Check Discord">
+    Go to your Discord panel channel. You should see:
+    
+    - A control panel message with buttons
+    - Console threads for your server(s)
+    - Error Reports thread
+    - Console Flask thread
+    
+    <img src="https://i.imgur.com/lE4GRIV.png" alt="McDis Panel" />
+  </Step>
+
+  <Step title="Start Your Server">
+    You can start your server in three ways:
+    
+    **From Discord Panel:**
+    ```
+    !!start my_server
+    ```
+    
+    **From Discord Console Thread:**
+    Navigate to the "Console my_server" thread and type:
+    ```
+    start
+    ```
+    
+    **From McDis Console:**
+    In your terminal where McDis is running:
+    ```
+    start my_server
+    ```
+    
+    Or click the **Processes** button in the Discord panel and use the button interface.
+  </Step>
+</Steps>
+
+## Testing Your Setup
+
+Once your server starts, you should see console output streaming to the Discord thread in real-time.
+
+### Try These Commands
+
+<CodeGroup>
+```bash Discord Panel
+!!restart my_server  # Restart the server
+!!stop my_server     # Stop the server
+!!start-all          # Start all configured servers
+```
+
+```bash Console Thread
+list                 # Send command to server
+stop                 # Stop the server
+restart              # Restart the server
+```
+
+```bash McDis Terminal
+status               # View panel status
+restart my_server    # Restart specific server
+exit                 # Gracefully shut down
+```
+</CodeGroup>
+
+## Next Steps
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Explore Features" icon="compass" href="/features/overview">
+    Learn about all the features McDis-RCON offers
+  </Card>
+  <Card title="Advanced Configuration" icon="sliders" href="/configuration/advanced">
+    Customize your setup further
+  </Card>
+  <Card title="File Manager" icon="folder-open" href="/features/file-manager">
+    Manage server files through Discord
+  </Card>
+  <Card title="Backup System" icon="database" href="/features/backup-system">
+    Set up automated backups
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Bot doesn't connect to Discord">
+    - Verify your bot token is correct in `md_config.yml`
+    - Ensure the bot is invited to your Discord server
+    - Check that you have internet connectivity
+  </Accordion>
+  
+  <Accordion title="Panel channel not found error">
+    - Verify the Panel ID is correct
+    - Ensure the bot has access to the channel
+    - Make sure you copied the channel ID, not the server ID
+  </Accordion>
+  
+  <Accordion title="Server won't start">
+    - Check that your `start_cmd` is correct
+    - Verify server files exist in the server folder
+    - Check console output for Java or server errors
+  </Accordion>
+  
+  <Accordion title="ruamel.yaml installation error">
+    If you encounter issues with the `ruamel.yaml` module, try:
+    
+    ```bash
+    # On Linux
+    python3 -m pip install --force ruamel.yaml
+    
+    # On Windows
+    python -m pip install --force ruamel.yaml
+    ```
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+  Need help? Join the [Discord community](https://discord.gg/xB9N38HBJY) or contact **kassiulo** on Discord.
+</Tip>

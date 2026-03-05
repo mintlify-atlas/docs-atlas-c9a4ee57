@@ -1,0 +1,498 @@
+---
+title: Addons Overview
+description: Understand the mdaddons system for global McDis-RCON extensions
+icon: puzzle-piece
+---
+
+McDis-RCON's addon system (mdaddons) provides global functionality that runs independently of individual server processes. Addons are active whenever McDis-RCON is connected to Discord.
+
+## What Are MDAddons?
+
+MDAddons are Python scripts that extend McDis-RCON **globally**:
+
+- **Global scope**: Affect all processes and the entire McDis-RCON instance
+- **Persistent**: Run while McDis-RCON is connected to Discord
+- **Discord-focused**: React to Discord events only (no console access)
+- **Reloadable**: Can be reloaded with `!!adreload`
+
+<Info>
+Addons are different from plugins. See [Plugins Overview](/guides/plugins-overview) for process-specific extensions.
+</Info>
+
+## Addons vs Plugins
+
+| Feature | MDAddons | MDPlugins |
+|---------|----------|----------|
+| Scope | Global (all processes) | Single process |
+| Lifecycle | McDis-RCON start/stop | Process start/stop |
+| Location | `McDis/.mdaddons/` | `McDis/<process>/.mdplugins/` |
+| Console access | No | Yes (via `listener_events`) |
+| Discord events | Yes (direct) | Yes (with `listener_` prefix) |
+| Reload command | `!!adreload` | `!!mdreload <process>` |
+
+## When to Use Addons
+
+Use addons for:
+
+<CardGroup cols={2}>
+  <Card title="Cross-server features" icon="network-wired">
+    Functionality that spans multiple servers (global announcements, status tracking)
+  </Card>
+  <Card title="Discord management" icon="discord">
+    Custom Discord commands, role management, moderation tools
+  </Card>
+  <Card title="Independent services" icon="gears">
+    Background tasks, scheduled jobs, API integrations
+  </Card>
+  <Card title="Global monitoring" icon="chart-line">
+    Track metrics across all servers, centralized logging
+  </Card>
+</CardGroup>
+
+Use plugins for:
+- Server console monitoring
+- Process-specific logic
+- Per-server chat bridging
+- Individual server events
+
+## Addon Architecture
+
+### File Structure
+
+Addons are stored in the global `.mdaddons` folder:
+
+```
+McDis/
+├── .mdaddons/
+│   ├── global_announcer.py      ← Single-file addon
+│   ├── status_tracker.py        ← Single-file addon
+│   └── advanced_bot/            ← Folder-based addon
+│       ├── __init__.py          ← Must contain mdaddon class
+│       ├── commands.py
+│       ├── utils.py
+│       └── config.json
+├── server 1/
+├── server 2/
+└── network 1/
+```
+
+### Addon Types
+
+McDis-RCON supports two addon structures:
+
+**1. Single-file addons** (`.py` files):
+```python
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+```
+
+**2. Folder-based addons** (with `__init__.py`):
+```
+advanced_bot/
+├── __init__.py    ← Contains mdaddon class
+├── helpers.py
+└── data.json
+```
+
+<Note>
+For folder-based addons, the `__init__.py` file must contain the `mdaddon` class.
+</Note>
+
+## Addon Class Structure
+
+Every addon must define an `mdaddon` class:
+
+```python
+from mcdis_rcon.classes import McDisClient
+import discord
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        """Called when addon is loaded"""
+        self.client = client
+        # Initialization code here
+
+    async def on_message(self, message: discord.Message):
+        """React to Discord messages"""
+        # No 'listener_' prefix needed for addons
+        pass
+
+    def unload(self):
+        """Called when addon is unloaded (optional)"""
+        # Cleanup code here
+        pass
+```
+
+<Warning>
+Unlike plugins, addon event methods do NOT use the `listener_` prefix. Use `on_message`, not `listener_on_message`.
+</Warning>
+
+## Addon Capabilities
+
+### 1. Discord Event Listeners
+
+Addons can react to any Discord event:
+
+```python
+import discord
+from mcdis_rcon.classes import McDisClient
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    async def on_message(self, message: discord.Message):
+        """React to all Discord messages"""
+        if message.author.bot:
+            return
+        
+        if message.channel.id == self.client.panel.id:
+            await message.add_reaction('✅')
+```
+
+### 2. Access to All Processes
+
+Addons can interact with all configured servers:
+
+```python
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    async def on_message(self, message: discord.Message):
+        if message.content == "!stopall":
+            # Stop all processes
+            for process in self.client.processes:
+                if process.is_running():
+                    process.stop()
+```
+
+### 3. Panel Interaction
+
+Addons have full access to the Discord panel:
+
+```python
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.panel = client.panel  # Discord panel channel
+
+    async def on_ready(self):
+        """Called when bot connects to Discord"""
+        await self.panel.send("🟢 McDis-RCON addon loaded!")
+```
+
+### 4. Background Tasks
+
+Addons can run background tasks:
+
+```python
+import asyncio
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        # Start background task
+        asyncio.create_task(self.periodic_status())
+
+    async def periodic_status(self):
+        """Send status updates every hour"""
+        while True:
+            await asyncio.sleep(3600)  # 1 hour
+            running = [p.name for p in self.client.processes if p.is_running()]
+            await self.client.panel.send(f"Running servers: {', '.join(running)}")
+```
+
+## Addon Lifecycle
+
+### Loading Process
+
+<Steps>
+  <Step title="McDis-RCON connects">
+    When the bot connects to Discord
+  </Step>
+  
+  <Step title="Addon discovery">
+    McDis-RCON scans `McDis/.mdaddons/` for:
+    - `.py` files with `mdaddon` class
+    - Folders with `__init__.py` containing `mdaddon` class
+  </Step>
+  
+  <Step title="Addon instantiation">
+    Each addon is imported and instantiated:
+    
+    ```python
+    addon_instance = mod.mdaddon(self)  # 'self' is McDisClient
+    ```
+  </Step>
+  
+  <Step title="Registration">
+    Addons are registered in the global addon registry:
+    
+    ```python
+    self.addons["global_announcer"] = addon_instance
+    ```
+  </Step>
+  
+  <Step title="Ready">
+    Addons are now active and listening for Discord events
+  </Step>
+</Steps>
+
+### Unloading Process
+
+<Steps>
+  <Step title="Unload trigger">
+    `!!adreload` command is executed
+  </Step>
+  
+  <Step title="Cleanup hook">
+    If the addon has an `unload()` method, it's called:
+    
+    ```python
+    class mdaddon:
+        def unload(self):
+            # Cleanup: cancel tasks, close connections, etc.
+            pass
+    ```
+  </Step>
+  
+  <Step title="Deregistration">
+    Addons are removed from the registry:
+    
+    ```python
+    self.addons = {}
+    ```
+  </Step>
+  
+  <Step title="Reload">
+    New addon instances are created from updated files
+  </Step>
+</Steps>
+
+## Available Discord Events
+
+Addons can listen to all Discord.py events without the `listener_` prefix:
+
+```python
+# Message events
+async def on_message(self, message):
+async def on_message_edit(self, before, after):
+async def on_message_delete(self, message):
+
+# Reaction events
+async def on_reaction_add(self, reaction, user):
+async def on_reaction_remove(self, reaction, user):
+
+# Member events
+async def on_member_join(self, member):
+async def on_member_remove(self, member):
+
+# Ready event
+async def on_ready(self):
+
+# And many more...
+```
+
+See [discord.py documentation](https://discordpy.readthedocs.io/en/stable/api.html#discord-api-events) for the complete list.
+
+## Client Object Reference
+
+The `client` object passed to addons is the `McDisClient` instance:
+
+```python
+self.client.panel          # Discord panel channel
+self.client.config         # md_config.yml contents
+self.client.processes      # List of all processes
+self.client.servers        # List of server processes
+self.client.networks       # List of network processes
+self.client.prefix         # Command prefix (!!)
+self.client.cwd            # McDis working directory
+self.client.addons         # Dictionary of loaded addons
+
+# Methods
+await self.client.error_report(title, error)  # Create error report
+await self.client.call_addons(function, args) # Call method on all addons
+```
+
+## Example: Simple Addon
+
+Here's a complete example that reacts to panel messages:
+
+```python reactor.py
+import discord
+from mcdis_rcon.classes import McDisClient
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    async def on_message(self, message: discord.Message):
+        """Add reaction to panel messages"""
+        if message.author.bot:
+            return  # Ignore messages from bots
+
+        if message.channel.id == self.client.panel.id:
+            await message.add_reaction('✅')
+```
+
+Place this file in `McDis/.mdaddons/reactor.py` and reload:
+
+```bash
+!!adreload
+```
+
+<Tip>
+Unlike plugins, this addon reacts to messages even when no servers are running.
+</Tip>
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Global Commands" icon="terminal">
+    Custom Discord commands that work across all servers
+  </Card>
+  <Card title="Status Dashboard" icon="chart-simple">
+    Track and display status of all processes in Discord
+  </Card>
+  <Card title="Scheduled Tasks" icon="clock">
+    Automated backups, announcements, restarts
+  </Card>
+  <Card title="API Integration" icon="plug">
+    Connect to external APIs, webhooks, databases
+  </Card>
+  <Card title="Role Management" icon="user-shield">
+    Automated Discord role assignment based on events
+  </Card>
+  <Card title="Logging & Analytics" icon="chart-line">
+    Centralized logging, metrics collection
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+### Error Handling
+
+Always handle errors gracefully:
+
+```python
+async def on_message(self, message: discord.Message):
+    try:
+        # Your code here
+        pass
+    except Exception as e:
+        await self.client.error_report(
+            title="Addon Error",
+            error=str(e)
+        )
+```
+
+### Resource Management
+
+Clean up resources in the `unload()` method:
+
+```python
+import aiohttp
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.session = aiohttp.ClientSession()
+
+    def unload(self):
+        # Close HTTP session
+        asyncio.create_task(self.session.close())
+```
+
+### Background Task Cancellation
+
+Cancel background tasks on unload:
+
+```python
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.task = asyncio.create_task(self.background_work())
+
+    async def background_work(self):
+        while True:
+            await asyncio.sleep(60)
+            # Do work
+
+    def unload(self):
+        self.task.cancel()
+```
+
+### Async Everywhere
+
+All Discord event handlers must be async:
+
+```python
+# Correct
+async def on_message(self, message):  # Async
+    await message.channel.send("Hello")
+
+# Wrong
+def on_message(self, message):  # Sync - won't work
+    await message.channel.send("Hello")
+```
+
+## Folder-Based Addons
+
+For complex addons, use the folder structure:
+
+```python __init__.py
+from mcdis_rcon.classes import McDisClient
+import discord
+from .helpers import format_status
+from .commands import handle_command
+
+class mdaddon:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    async def on_message(self, message: discord.Message):
+        if message.content.startswith("!"):
+            await handle_command(self.client, message)
+```
+
+```python helpers.py
+def format_status(processes):
+    """Format process status for display"""
+    running = [p.name for p in processes if p.is_running()]
+    stopped = [p.name for p in processes if not p.is_running()]
+    return f"Running: {', '.join(running)}\nStopped: {', '.join(stopped)}"
+```
+
+```python commands.py
+import discord
+from .helpers import format_status
+
+async def handle_command(client, message: discord.Message):
+    if message.content == "!status":
+        status = format_status(client.processes)
+        await message.channel.send(status)
+```
+
+<Info>
+Folder-based addons allow better code organization for complex functionality.
+</Info>
+
+## Advanced Examples
+
+For production-ready addon implementations, check out:
+
+- [AeternumBot](https://github.com/mjpr-3435/AeternumBot) - Advanced event system and commands
+- EnigmaBot (Coming soon) - Additional automation examples
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Addons" href="/guides/creating-addons" icon="code">
+    Learn how to write custom addons with detailed examples
+  </Card>
+  <Card title="Plugins Overview" href="/guides/plugins-overview" icon="plug">
+    Understand process-specific plugins for console monitoring
+  </Card>
+</CardGroup>

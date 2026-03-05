@@ -1,0 +1,388 @@
+---
+title: Minecraft Utilities
+description: Minecraft-specific utility functions for UUIDs and player data
+icon: cube
+---
+
+## Overview
+
+The `mc` module provides utilities for working with Minecraft player UUIDs, converting between online and offline modes, and resolving player names.
+
+## UUID Generation
+
+### mc_uuid(player, online)
+
+Generates or retrieves a Minecraft player UUID.
+
+<ParamField path="player" type="str" required>
+  Player username
+</ParamField>
+
+<ParamField path="online" type="bool" default="True">
+  Use online mode (True) or offline mode (False)
+</ParamField>
+
+<ResponseField name="return" type="str">
+  UUID string in format: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.mc import mc_uuid
+
+# Online mode (queries Mojang API)
+online_uuid = mc_uuid("Notch", online=True)
+print(f"Online UUID: {online_uuid}")
+# Output: 069a79f4-44e9-4726-a5be-fca90e38aaf5
+
+# Offline mode (generates UUID deterministically)
+offline_uuid = mc_uuid("Notch", online=False)
+print(f"Offline UUID: {offline_uuid}")
+# Output: Different from online mode
+```
+
+## Online Mode
+
+When `online=True`, the function queries the Mojang API to retrieve the official UUID:
+
+**Source code** from `/home/daytona/workspace/source/mcdis_rcon/utils/mc.py:3-11`:
+
+```python
+def mc_uuid(player: str, *, online: bool = True):
+    if online:
+        try:
+            response = requests.get(
+                f'https://api.mojang.com/users/profiles/minecraft/{player}', 
+                timeout=5
+            )
+            if response.status_code == 200:
+                data = response.json()
+                return uuid.UUID(data['id']).__str__()
+        except Exception:
+            return "00000000-0000-0000-0000-000000000000"
+```
+
+<Info>
+Online mode requires an internet connection and queries Mojang's API. It returns the official UUID for premium accounts.
+</Info>
+
+## Offline Mode
+
+When `online=False`, generates a UUID using MD5 hash (matches Minecraft's offline mode):
+
+**Source code** from `/home/daytona/workspace/source/mcdis_rcon/utils/mc.py:12-21`:
+
+```python
+else:
+    hash = hashlib.md5(f"OfflinePlayer:{player}".encode('utf-8')).digest()
+    byte_array = [byte for byte in hash]
+    byte_array[6] = hash[6] & 0x0f | 0x30
+    byte_array[8] = hash[8] & 0x3f | 0x80
+
+    hash_modified = bytes(byte_array)
+    offline_player_uuid = uuid.UUID(hash_modified.hex()).__str__()
+
+    return offline_player_uuid
+```
+
+<Info>
+Offline mode generates UUIDs deterministically using the same algorithm as Minecraft servers in offline mode.
+</Info>
+
+## UUID to Username
+
+### online_uuid_to_name(uuid)
+
+Converts a UUID to the current username (online mode only).
+
+<ParamField path="uuid" type="str" required>
+  Player UUID (with or without hyphens)
+</ParamField>
+
+<ResponseField name="return" type="str">
+  Current username or "Not Found"
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.mc import online_uuid_to_name
+
+uuid = "069a79f4-44e9-4726-a5be-fca90e38aaf5"
+username = online_uuid_to_name(uuid)
+print(f"Username: {username}")  # "Notch"
+```
+
+**Source code** from `/home/daytona/workspace/source/mcdis_rcon/utils/mc.py:23-30`:
+
+```python
+def online_uuid_to_name(uuid: str):
+    response = requests.get(
+        f"https://api.mojang.com/user/profiles/{uuid.replace('-', '')}/names"
+    )
+
+    if response.status_code == 200:
+        current_name = response.json()[-1]["name"]
+        return current_name
+    else:
+        return 'Not Found'
+```
+
+<Warning>
+This function only works for online mode UUIDs. Offline UUIDs cannot be reversed to usernames.
+</Warning>
+
+## Usage in Plugins
+
+### Track Player UUIDs
+
+```python
+import asyncio
+from mcdis_rcon.utils.mc import mc_uuid
+from mcdis_rcon.utils.files import dict_to_json, json_to_dict
+import os
+
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+        self.data_file = os.path.join(
+            process.path_files,
+            'player_uuids.json'
+        )
+        self.uuids = self.load_data()
+    
+    def load_data(self):
+        if os.path.exists(self.data_file):
+            return json_to_dict(self.data_file)
+        return {}
+    
+    def save_data(self):
+        dict_to_json(self.data_file, self.uuids)
+    
+    def listener_events(self, log: str):
+        if "joined the game" in log:
+            # Extract player name from log
+            parts = log.split()
+            if len(parts) > 3:
+                player = parts[3]
+                
+                # Get UUID (async API call)
+                asyncio.create_task(self.store_uuid(player))
+    
+    async def store_uuid(self, player: str):
+        # Query Mojang API for UUID
+        player_uuid = mc_uuid(player, online=True)
+        
+        # Store in database
+        self.uuids[player] = player_uuid
+        self.save_data()
+        
+        # Log to Discord
+        await self.process.send_to_console(
+            f"Stored UUID for {player}: {player_uuid}"
+        )
+    
+    def unload(self):
+        self.save_data()
+```
+
+### Whitelist Manager
+
+```python
+import asyncio
+from mcdis_rcon.utils.mc import mc_uuid
+import discord
+
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+    
+    async def listener_on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+        
+        # Command: !whitelist add <username>
+        if message.content.startswith("!whitelist add "):
+            username = message.content.split(" ", 2)[2]
+            
+            # Get UUID
+            player_uuid = mc_uuid(username, online=True)
+            
+            if player_uuid == "00000000-0000-0000-0000-000000000000":
+                await message.channel.send(
+                    f"❌ Player '{username}' not found"
+                )
+                return
+            
+            # Add to whitelist
+            self.process.execute(f"whitelist add {username}")
+            
+            await message.channel.send(
+                f"✅ Added {username} to whitelist\n"
+                f"UUID: `{player_uuid}`"
+            )
+```
+
+### Player Data Lookup
+
+```python
+import discord
+import asyncio
+from mcdis_rcon.utils.mc import mc_uuid, online_uuid_to_name
+from mcdis_rcon.utils.files import read_dat_files, dat_to_dict
+import os
+
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+    
+    async def listener_on_message(self, message: discord.Message):
+        if message.content.startswith("!lookup "):
+            username = message.content.split(" ", 1)[1]
+            
+            # Get UUID
+            player_uuid = mc_uuid(username, online=True)
+            
+            if player_uuid == "00000000-0000-0000-0000-000000000000":
+                await message.channel.send(f"❌ Player not found")
+                return
+            
+            # Check if player has data file
+            playerdata_path = os.path.join(
+                self.process.path_files,
+                'world',
+                'playerdata',
+                f'{player_uuid}.dat'
+            )
+            
+            if os.path.exists(playerdata_path):
+                # Read player data
+                nbt_data = read_dat_files(playerdata_path)
+                data = dat_to_dict(nbt_data)
+                
+                msg = f"**Player Data: {username}**\n"
+                msg += f"UUID: `{player_uuid}`\n"
+                msg += f"Has played on this server: Yes"
+                
+                await message.channel.send(msg)
+            else:
+                await message.channel.send(
+                    f"**{username}**\n"
+                    f"UUID: `{player_uuid}`\n"
+                    f"Has not played on this server"
+                )
+```
+
+### UUID Conversion Tool
+
+```python
+import discord
+from mcdis_rcon.utils.mc import mc_uuid, online_uuid_to_name
+
+class mdaddon:
+    def __init__(self, client):
+        self.client = client
+    
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+        
+        # Convert username to UUID
+        if message.content.startswith("!uuid "):
+            username = message.content.split(" ", 1)[1]
+            
+            online = mc_uuid(username, online=True)
+            offline = mc_uuid(username, online=False)
+            
+            response = f"**UUIDs for {username}:**\n"
+            response += f"Online:  `{online}`\n"
+            response += f"Offline: `{offline}`"
+            
+            await message.channel.send(response)
+        
+        # Convert UUID to username
+        elif message.content.startswith("!name "):
+            player_uuid = message.content.split(" ", 1)[1]
+            username = online_uuid_to_name(player_uuid)
+            
+            await message.channel.send(
+                f"**UUID:** `{player_uuid}`\n"
+                f"**Username:** {username}"
+            )
+```
+
+## Error Handling
+
+```python
+import asyncio
+from mcdis_rcon.utils.mc import mc_uuid
+
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+    
+    async def get_uuid_safe(self, username: str) -> str:
+        """Safely get UUID with fallback"""
+        try:
+            # Try online mode first
+            player_uuid = mc_uuid(username, online=True)
+            
+            # Check if API failed (returns null UUID)
+            if player_uuid == "00000000-0000-0000-0000-000000000000":
+                # Fallback to offline mode
+                await self.process.send_to_console(
+                    f"⚠️ Failed to get online UUID for {username}, using offline mode"
+                )
+                player_uuid = mc_uuid(username, online=False)
+            
+            return player_uuid
+            
+        except Exception as e:
+            # Error - use offline mode
+            await self.process.send_to_console(
+                f"❌ Error getting UUID for {username}: {e}"
+            )
+            return mc_uuid(username, online=False)
+```
+
+## Best Practices
+
+<Tip>
+Use online mode for servers in online-mode=true. Use offline mode for offline-mode=false servers.
+</Tip>
+
+<Warning>
+Online mode requires internet access and may fail if Mojang's API is down. Always handle the null UUID return value.
+</Warning>
+
+<Tip>
+Cache UUIDs locally to reduce API calls and improve performance.
+</Tip>
+
+<Info>
+Offline UUIDs are deterministic - the same username always generates the same UUID.
+</Info>
+
+## Common Use Cases
+
+| Use Case | Method |
+|----------|--------|
+| Get UUID for whitelist | `mc_uuid(player, online=True)` |
+| Generate offline UUID | `mc_uuid(player, online=False)` |
+| Find player data file | `mc_uuid()` + playerdata lookup |
+| Convert UUID to name | `online_uuid_to_name(uuid)` |
+| Verify premium account | Check if online UUID != null UUID |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="File Utilities" href="/api/utils/files" icon="file">
+    Read player data files
+  </Card>
+  <Card title="Discord Utilities" href="/api/utils/discord" icon="discord">
+    Discord helper functions
+  </Card>
+  <Card title="Creating Plugins" href="/guides/creating-plugins" icon="code">
+    Build plugins with player tracking
+  </Card>
+  <Card title="Mojang API" href="https://wiki.vg/Mojang_API" icon="book">
+    Official Mojang API documentation
+  </Card>
+</CardGroup>

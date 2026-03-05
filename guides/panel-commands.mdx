@@ -1,0 +1,180 @@
+---
+title: Panel Commands
+description: Learn how to use McDis-RCON panel commands to control your Minecraft servers
+icon: terminal
+---
+
+McDis-RCON provides several commands to manage your server processes. These commands can be executed from the Discord panel channel or directly in process console threads.
+
+## Available Commands
+
+The following commands are available for process management:
+
+<CardGroup cols={2}>
+  <Card title="start" icon="play">
+    Executes the `start_cmd` configured in `md_config.yml` to start the process
+  </Card>
+  <Card title="stop" icon="stop">
+    Executes the `stop_cmd` configured in `md_config.yml` to gracefully stop the process
+  </Card>
+  <Card title="restart" icon="rotate">
+    Stops the process with `stop_cmd`, then starts it again with `start_cmd`
+  </Card>
+  <Card title="kill" icon="skull">
+    Forcefully terminates the process immediately
+  </Card>
+  <Card title="mdreload" icon="arrows-rotate">
+    Reloads all mdplugins in the process's `.mdplugins` folder
+  </Card>
+  <Card title="adreload" icon="box-open">
+    Reloads all McDis-RCON addons from the `.mdaddons` folder
+  </Card>
+</CardGroup>
+
+## Using Commands in Discord
+
+<Steps>
+  <Step title="Identify the command prefix">
+    In the Discord panel channel, all commands must be preceded by `!!`
+  </Step>
+  
+  <Step title="Specify the target process">
+    Add the process name after the command. Process names are case-insensitive.
+    
+    ```bash
+    !!start SMP
+    !!stop cmp
+    !!restart velocity
+    ```
+  </Step>
+  
+  <Step title="Apply to all processes">
+    Use the `-all` suffix to execute a command on all configured processes.
+    
+    ```bash
+    !!start-all
+    !!stop-all
+    !!restart-all
+    !!mdreload-all
+    ```
+  </Step>
+</Steps>
+
+## Using Commands in Console Threads
+
+Within individual process console threads, you can execute commands directly without the `!!` prefix or process name:
+
+```bash
+start
+stop
+restart
+kill
+mdreload
+```
+
+<Note>
+Commands typed in console threads only affect that specific process.
+</Note>
+
+## Command Examples
+
+### Starting a Specific Server
+
+```bash
+!!start SMP
+```
+
+This starts the process named "SMP" (case-insensitive matching).
+
+### Stopping All Servers
+
+```bash
+!!stop-all
+```
+
+This executes the stop command for every configured process.
+
+### Reloading Plugins
+
+```bash
+!!mdreload SMP
+```
+
+This reloads all `.mdplugins` for the SMP server without restarting the process.
+
+### Reloading Addons
+
+```bash
+!!adreload
+```
+
+This reloads all `.mdaddons` globally. No process name is needed.
+
+<Warning>
+The `kill` command forcefully terminates processes and may cause data loss. Use `stop` for graceful shutdowns whenever possible.
+</Warning>
+
+## Command Behavior
+
+### Start Command
+
+- Executes the `start_cmd` from your configuration
+- Initializes the process console relay
+- Loads all mdplugins from `.mdplugins`
+- Creates console thread in Discord
+
+### Stop Command
+
+- Sends the `stop_cmd` to the process
+- Waits up to 60 seconds for graceful shutdown
+- If timeout is exceeded, the process is forcefully killed
+- Unloads all mdplugins
+
+### Restart Command
+
+- Executes stop command
+- Waits for process to fully terminate
+- Executes start command
+- Reloads plugins automatically
+
+### Kill Command
+
+- Immediately terminates the process
+- No graceful shutdown period
+- Use only when a process is unresponsive
+
+### MDReload Command
+
+- Calls `unload()` method on existing plugins
+- Clears plugin registry
+- Re-imports all `.py` files from `.mdplugins`
+- Instantiates new plugin instances
+- Process must be running for reload to work
+
+### ADReload Command
+
+- Calls `unload()` method on existing addons
+- Clears addon registry
+- Re-imports all files/folders from `.mdaddons`
+- Instantiates new addon instances
+- Works while McDis-RCON is connected to Discord
+
+<Tip>
+Use `mdreload` during plugin development to test changes without restarting your Minecraft server.
+</Tip>
+
+## Console Commands
+
+When McDis-RCON is running from the terminal, you can also use these commands directly:
+
+```bash
+Commands: start, stop, restart, kill, mdreload, adreload, status, exit
+>>
+```
+
+- `status` - Displays the current panel status
+- `exit` - Gracefully shuts down McDis-RCON and all processes
+
+<Info>
+Console commands accept process names (e.g., `start SMP`) or `-all` suffix for bulk operations.
+</Info>

@@ -1,0 +1,322 @@
+---
+title: Process Manager
+description: Monitor and manage all processes running in your McDis folder
+icon: gears
+---
+
+The Process Manager tool allows you to view and control all processes running within your McDis folder, providing visibility beyond just your configured Minecraft servers.
+
+## Accessing the Process Manager
+
+<Steps>
+  <Step title="Open the Tools panel">
+    Click the **Tools** button in your Discord panel
+  </Step>
+  
+  <Step title="Select Processes">
+    Click the **Processes** option to view running processes
+  </Step>
+</Steps>
+
+![Processes Manager](https://i.imgur.com/72K5lBN.png)
+
+## Interface Features
+
+<CardGroup cols={2}>
+  <Card title="🔄 Reload" icon="rotate">
+    Refreshes the list of running processes
+  </Card>
+  <Card title="📌 Pin Path" icon="thumbtack">
+    Allows filtering processes by specific path within McDis
+  </Card>
+  <Card title="Dropdown" icon="list">
+    Lists all detected processes with details
+  </Card>
+  <Card title="Terminate" icon="skull">
+    Forcefully kills the selected process
+  </Card>
+</CardGroup>
+
+## What Processes Are Shown
+
+The Process Manager displays all processes running within your McDis folder, including:
+
+- **Minecraft Servers**: Your configured server processes
+- **Proxy Servers**: Velocity, BungeeCord, Waterfall networks
+- **Build Tools**: BuildTools, Paper compiler processes
+- **Java Processes**: Any Java applications running in McDis
+- **Background Tasks**: Scripts, schedulers, or automation tools
+
+<Info>
+The Process Manager specifically looks for Java processes with working directories inside your McDis folder and memory usage above 50MB.
+</Info>
+
+## Process Detection
+
+McDis-RCON identifies processes using multiple criteria:
+
+```python
+cond_1 = process.name() in ['java', 'java.exe']
+cond_2 = os.path.commonpath([mcdis_path, process.cwd()]) == mcdis_path
+cond_3 = any([java in process.cmdline()[0] for java in ['java', 'java.exe']])
+cond_4 = process.memory_info().rss // (1024**2) > 50  # Over 50MB RAM
+```
+
+This ensures only relevant Java processes within McDis are shown.
+
+## Using the Process Manager
+
+### Viewing Running Processes
+
+<Steps>
+  <Step title="Open Processes tool">
+    The dropdown will populate with all detected processes
+  </Step>
+  
+  <Step title="Review process information">
+    Each entry shows:
+    - Process name/command
+    - Working directory
+    - Memory usage
+    - Process ID (PID)
+  </Step>
+  
+  <Step title="Refresh as needed">
+    Click 🔄 to update the process list
+  </Step>
+</Steps>
+
+### Terminating a Process
+
+<Steps>
+  <Step title="Select the process">
+    Choose the process from the dropdown menu
+  </Step>
+  
+  <Step title="Confirm termination">
+    The interface will show process details
+  </Step>
+  
+  <Step title="Kill the process">
+    Select the process from the dropdown to forcefully terminate it
+  </Step>
+</Steps>
+
+<Warning>
+Terminating processes forcefully can cause data loss. Use the standard `!!kill` command for configured servers when possible, as it includes proper cleanup.
+</Warning>
+
+## Use Cases
+
+### Finding Orphaned Processes
+
+Sometimes processes continue running after McDis-RCON crashes or restarts:
+
+1. Open the Process Manager
+2. Look for Java processes you didn't intentionally start
+3. Terminate orphaned processes to free resources
+
+### Identifying Resource Hogs
+
+Check which processes are consuming memory:
+
+```
+Process: java -Xmx4G -jar server.jar
+Working Dir: McDis/server 1
+Memory: 3.2 GB
+PID: 12345
+```
+
+Use this information to:
+- Identify memory leaks
+- Adjust JVM flags
+- Determine if servers need more RAM
+
+### Troubleshooting Port Conflicts
+
+If a server won't start due to port conflicts:
+
+1. Check the Process Manager for unexpected Java processes
+2. Terminate the conflicting process
+3. Restart your server
+
+### Monitoring Background Tasks
+
+If you run build or backup scripts within McDis:
+
+1. Monitor their execution in the Process Manager
+2. Verify they complete successfully
+3. Terminate if they hang or freeze
+
+## Filtering by Path
+
+The Pin Path feature allows focusing on specific directories:
+
+<Steps>
+  <Step title="Click 📌">
+    Open the path filter
+  </Step>
+  
+  <Step title="Enter path">
+    Type a specific McDis path:
+    
+    ```
+    McDis/server 1
+    McDis/network 1
+    ```
+  </Step>
+  
+  <Step title="View filtered results">
+    Only processes in that directory are shown
+  </Step>
+</Steps>
+
+<Tip>
+Use path filtering when managing multiple servers to isolate which processes belong to which server.
+</Tip>
+
+## Process Manager vs Panel Commands
+
+### When to Use Process Manager
+
+- **Orphaned processes**: Cleanup after crashes
+- **Unknown processes**: Identify what's running
+- **Direct control**: Force-kill any Java process
+- **Debugging**: Check PIDs and memory usage
+
+### When to Use Panel Commands
+
+- **Configured servers**: Managed stop with cleanup
+- **Plugin unloading**: Proper shutdown sequence
+- **Graceful stops**: `!!stop` vs force kill
+- **Logging**: Console output and error reports
+
+<Info>
+The Process Manager is a diagnostic and emergency tool. For normal operations, use `!!stop`, `!!kill`, and other panel commands.
+</Info>
+
+## Understanding Process Memory
+
+Memory usage shown includes:
+
+- **Heap Memory**: JVM heap allocation
+- **Native Memory**: Off-heap memory used by Java
+- **Mapped Files**: World regions loaded in memory
+
+```
+Minecraft Server Memory Breakdown:
+- Heap: Configured via -Xmx flag
+- Native: Libraries, buffers, thread stacks
+- Total: Shown in Process Manager
+```
+
+<Note>
+If "Total RAM" shown in the Process Manager exceeds your `-Xmx` setting, the difference is native memory usage.
+</Note>
+
+## Troubleshooting
+
+<Accordion title="Process Manager shows no processes">
+  **Possible causes:**
+  - No servers are currently running
+  - Servers are running outside McDis folder
+  - Servers use less than 50MB RAM (unlikely for Minecraft)
+  
+  **Solution:**
+  - Start a server with `!!start <process>`
+  - Verify server paths in `md_config.yml`
+  - Check console for startup errors
+</Accordion>
+
+<Accordion title="Cannot terminate a process">
+  **Problem:** Process remains after termination attempt
+  
+  **Solutions:**
+  1. Use the panel `!!kill` command for configured servers
+  2. Try terminating from the server console directly
+  3. Manually kill the process from the host system
+  4. Restart McDis-RCON if process table is stale
+</Accordion>
+
+<Accordion title="Process appears twice">
+  **Explanation:** Java processes often spawn child processes
+  
+  **What to do:**
+  - Terminate the parent process (usually higher memory usage)
+  - Child processes should terminate automatically
+  - If not, terminate remaining children
+</Accordion>
+
+## Best Practices
+
+### Regular Process Audits
+
+Periodically check the Process Manager:
+
+```bash
+# Weekly check routine
+1. Open Process Manager
+2. Verify only expected processes are running
+3. Check memory usage patterns
+4. Terminate any orphaned processes
+5. Document unusual findings
+```
+
+### After Server Crashes
+
+Always check the Process Manager after crashes:
+
+1. Look for zombie server processes
+2. Terminate any orphaned instances
+3. Clear port locks before restarting
+4. Review memory usage before crash
+
+### Before Shutdowns
+
+Before shutting down McDis-RCON:
+
+```bash
+!!stop-all              # Stop all configured servers
+# Check Process Manager for remaining processes
+# Terminate any stragglers
+exit                    # Safe to exit McDis-RCON
+```
+
+<Tip>
+Bookmark the Process Manager during initial setup to familiarize yourself with normal process patterns.
+</Tip>
+
+## Integration with Other Tools
+
+The Process Manager works alongside other McDis-RCON features:
+
+- **Panel Commands**: Use `!!kill` after identifying PIDs
+- **File Manager**: Navigate to process directories
+- **Flask Server**: Check Flask process status
+- **Error Reports**: Cross-reference PIDs in error logs
+
+## Advanced Usage
+
+### Identifying Real Process IDs
+
+McDis-RCON tracks both wrapper and real process IDs:
+
+```python
+self.process           # subprocess.Popen object
+self.real_process      # Actual Java process (psutil.Process)
+```
+
+The Process Manager shows the real Java process, while panel commands operate on the wrapper.
+
+### Memory Monitoring
+
+Track memory usage over time:
+
+1. Note memory usage at server start
+2. Check after player activity
+3. Monitor for memory leaks (continuously growing)
+4. Use data to tune JVM flags
+
+<Info>
+If memory usage grows unbounded, you likely have a memory leak in a plugin or mod.
+</Info>

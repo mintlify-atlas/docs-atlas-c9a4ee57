@@ -1,0 +1,277 @@
+---
+title: Console Commands
+description: Interactive terminal commands for managing McDis-RCON
+icon: terminal
+---
+
+## Overview
+
+After starting McDis-RCON with `mcdis run`, you can control processes using interactive console commands from your terminal.
+
+## Available Commands
+
+All console commands can be entered at the `>>` prompt after McDis-RCON starts.
+
+### Start Commands
+
+<ParamField path="start-all" type="command">
+  Start all configured processes (servers and networks)
+  
+  ```bash
+  >> start-all
+  ```
+  
+  Output: `✔ Initializing processes.`
+</ParamField>
+
+<ParamField path="start <name>" type="command">
+  Start a specific process by name
+  
+  ```bash
+  >> start SMP
+  ```
+  
+  Output: `✔ [SMP]: Initializing process.`
+</ParamField>
+
+### Stop Commands
+
+<ParamField path="stop-all" type="command">
+  Gracefully stop all running processes using their configured `stop_cmd`
+  
+  ```bash
+  >> stop-all
+  ```
+  
+  Output: `✔ Stopping processes.`
+</ParamField>
+
+<ParamField path="stop <name>" type="command">
+  Gracefully stop a specific process
+  
+  ```bash
+  >> stop SMP
+  ```
+  
+  Output: `✔ [SMP]: Stopping process.`
+</ParamField>
+
+### Kill Commands
+
+<ParamField path="kill-all" type="command">
+  Force-kill all running processes immediately
+  
+  ```bash
+  >> kill-all
+  ```
+  
+  Output: `✔ Forcibly stopped processes.`
+  
+  <Warning>
+  This terminates processes without graceful shutdown. Use only when processes are unresponsive.
+  </Warning>
+</ParamField>
+
+<ParamField path="kill <name>" type="command">
+  Force-kill a specific process
+  
+  ```bash
+  >> kill SMP
+  ```
+  
+  Output: `✔ [SMP]: Forcibly stopped process.`
+</ParamField>
+
+### Restart Commands
+
+<ParamField path="restart-all" type="command">
+  Restart all running processes (stop then start)
+  
+  ```bash
+  >> restart-all
+  ```
+  
+  Output: `✔ Restarting processes...`
+</ParamField>
+
+<ParamField path="restart <name>" type="command">
+  Restart a specific process
+  
+  ```bash
+  >> restart SMP
+  ```
+  
+  Output: `✔ [SMP]: Restarting process...`
+</ParamField>
+
+### Plugin & Addon Management
+
+<ParamField path="mdreload-all" type="command">
+  Reload mdplugins for all processes
+  
+  ```bash
+  >> mdreload-all
+  ```
+  
+  Output: `✔ Reloading mdplugins...`
+  
+  <Info>
+  This reloads plugins from each process's `.mdplugins/` directory without restarting the process.
+  </Info>
+</ParamField>
+
+<ParamField path="mdreload <name>" type="command">
+  Reload mdplugins for a specific process
+  
+  ```bash
+  >> mdreload SMP
+  ```
+  
+  Output: `✔ [SMP]: Reloading mdplugins...`
+</ParamField>
+
+<ParamField path="adreload" type="command">
+  Reload global mdaddons from `.mdaddons/` directory
+  
+  ```bash
+  >> adreload
+  ```
+  
+  Output: `✔ Reloading mdaddons...`
+</ParamField>
+
+### Utility Commands
+
+<ParamField path="status" type="command">
+  Display the control panel status in terminal
+  
+  ```bash
+  >> status
+  ```
+  
+  Shows the current panel embed with process states
+</ParamField>
+
+<ParamField path="exit" type="command">
+  Gracefully shut down McDis-RCON
+  
+  ```bash
+  >> exit
+  ```
+  
+  1. Stops all processes
+  2. Waits up to 60 seconds for shutdown
+  3. Force-kills unresponsive processes
+  4. Exits the application
+</ParamField>
+
+## Command Source Code
+
+From `/home/daytona/workspace/source/mcdis_rcon/classes/McDisClient.py:338-469`:
+
+```python
+async def console_interface(self, command: str):
+    if self.is_command(command.lower(), 'start-all', console = True):
+        print(self._('✔ Initializing processes.'))
+        for process in self.processes: 
+            process.start()
+            
+    elif self.is_command(command.lower(), 'stop-all', console = True):
+        print(self._('✔ Stopping processes.'))
+        for process in self.processes: 
+            process.stop()
+    
+    # ... additional commands
+```
+
+## Error Messages
+
+### Process Not Found
+
+```
+✖ Specify the process. E.g.: `start <name>` or `start-all`.
+```
+
+### Process Already Running
+
+```
+✖ [SMP]: The process was already open.
+```
+
+### Process Not Running
+
+```
+✖ [SMP]: The process was not open.
+```
+
+### Invalid Command
+
+```
+✖ Invalid command `xyz`.
+```
+
+## Console Listener Loop
+
+The console continuously prompts for commands:
+
+```python
+def console_listener(self):
+    try:
+        while True:
+            print('\n' + self._('Commands') + self._(': start, stop, restart, kill, mdreload, adreload, status, exit'))
+            command = input('>>')
+            asyncio.run_coroutine_threadsafe(self.console_interface(command), self.loop)
+            time.sleep(3)
+    except:
+        pass
+```
+
+## Example Session
+
+```bash
+Commands: start, stop, restart, kill, mdreload, adreload, status, exit
+>> start SMP
+✔ [SMP]: Initializing process.
+
+Commands: start, stop, restart, kill, mdreload, adreload, status, exit
+>> status
+[Panel display appears]
+
+Commands: start, stop, restart, kill, mdreload, adreload, status, exit
+>> mdreload SMP
+✔ [SMP]: Reloading mdplugins...
+
+Commands: start, stop, restart, kill, mdreload, adreload, status, exit
+>> stop SMP
+✔ [SMP]: Stopping process.
+
+Commands: start, stop, restart, kill, mdreload, adreload, status, exit
+>> exit
+Closing processes...
+Processes closed.
+```
+
+## Best Practices
+
+<Tip>
+Use `stop` instead of `kill` whenever possible to allow servers to save data properly.
+</Tip>
+
+<Tip>
+Reload plugins with `mdreload` after making changes to `.mdplugins/` files without restarting the server.
+</Tip>
+
+<Warning>
+The `kill` command terminates processes immediately, which may cause data corruption or loss.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Panel Commands" href="/guides/panel-commands" icon="discord">
+    Learn Discord panel commands
+  </Card>
+  <Card title="Process Manager" href="/guides/process-manager" icon="server">
+    Understanding process lifecycle
+  </Card>
+</CardGroup>

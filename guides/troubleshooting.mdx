@@ -1,0 +1,725 @@
+---
+title: Troubleshooting
+description: Solutions to common issues and problems with McDis-RCON
+icon: wrench
+---
+
+This guide covers common issues you might encounter with McDis-RCON and their solutions.
+
+## Installation & Setup Issues
+
+<Accordion title="McDis-RCON won't start">
+  **Symptoms:**
+  - Error when running `mcdis run`
+  - Python crashes or shows import errors
+  
+  **Possible causes:**
+  1. Missing dependencies
+  2. Invalid `md_config.yml`
+  3. Wrong Python version
+  
+  **Solutions:**
+  
+  **Check Python version:**
+  ```bash
+  python --version  # Should be 3.8+
+  ```
+  
+  **Reinstall dependencies:**
+  ```bash
+  pip install mcdis-rcon --upgrade
+  ```
+  
+  **Validate configuration:**
+  ```bash
+  # Regenerate config
+  mcdis init
+  # Compare with your custom config
+  ```
+  
+  **Check for error messages:**
+  ```bash
+  mcdis run 2>&1 | tee mcdis_error.log
+  ```
+</Accordion>
+
+<Accordion title="Bot doesn't connect to Discord">
+  **Symptoms:**
+  - "Error while running discord client" message
+  - Bot shows offline in Discord
+  
+  **Possible causes:**
+  1. Invalid bot token
+  2. Bot not invited to server
+  3. Network/firewall issues
+  
+  **Solutions:**
+  
+  **Verify bot token:**
+  ```yaml md_config.yml
+  Bot Token: "YOUR_ACTUAL_TOKEN_HERE"
+  # No quotes inside the token itself
+  ```
+  
+  **Check bot invite:**
+  1. Go to Discord Developer Portal
+  2. Select your application
+  3. OAuth2 → URL Generator
+  4. Select `bot` scope
+  5. Select `Administrator` permissions
+  6. Use generated URL to invite bot
+  
+  **Test network:**
+  ```bash
+  ping discord.com
+  curl https://discord.com/api/v10/gateway
+  ```
+</Accordion>
+
+<Accordion title="Panel channel not found">
+  **Error message:** `Error: Channel with id XXXXX not found.`
+  
+  **Causes:**
+  1. Wrong channel ID in config
+  2. Bot doesn't have channel access
+  3. Channel was deleted
+  
+  **Solutions:**
+  
+  **Get correct channel ID:**
+  1. Enable Developer Mode in Discord (Settings → Advanced)
+  2. Right-click the channel → Copy ID
+  3. Update `md_config.yml`:
+     ```yaml
+     Panel ID: 1234567890  # Your channel ID (no quotes)
+     ```
+  
+  **Check bot permissions:**
+  - Bot needs Read/Send Messages in the channel
+  - Grant Administrator role for simplicity
+  
+  **Verify channel exists:**
+  - Ensure the channel hasn't been deleted
+  - Create a new channel if needed
+</Accordion>
+
+## Process Management Issues
+
+<Accordion title="Server won't start">
+  **Symptoms:**
+  - `!!start SMP` shows "Initializing" but nothing happens
+  - Console thread shows "[Initializing Process...]"
+  - Process immediately stops
+  
+  **Possible causes:**
+  1. Incorrect `start_cmd`
+  2. Missing server files
+  3. Port already in use
+  4. Insufficient memory
+  
+  **Solutions:**
+  
+  **Test start command manually:**
+  ```bash
+  cd McDis/SMP
+  java -Xmx4G -jar server.jar nogui
+  # Does it work?
+  ```
+  
+  **Check for required files:**
+  ```bash
+  ls McDis/SMP/
+  # Should see server.jar (or equivalent)
+  ```
+  
+  **Check port availability:**
+  ```bash
+  # Linux/Mac
+  netstat -tuln | grep 25565
+  
+  # Windows
+  netstat -ano | findstr 25565
+  ```
+  
+  **Verify memory:**
+  ```bash
+  free -h  # Linux
+  # Ensure enough RAM available
+  ```
+  
+  **Check error reports:**
+  - Look in "Error Reports" Discord thread
+  - Check terminal output
+</Accordion>
+
+<Accordion title="Server won't stop gracefully">
+  **Symptoms:**
+  - `!!stop SMP` doesn't stop the server
+  - Process runs for 60 seconds then force-kills
+  
+  **Causes:**
+  1. Incorrect `stop_cmd`
+  2. Server not responding to stop command
+  3. Plugin preventing shutdown
+  
+  **Solutions:**
+  
+  **Verify stop command:**
+  ```yaml md_config.yml
+  Processes:
+    Servers:
+      SMP:
+        stop_cmd: "stop"  # Most servers
+        # OR
+        stop_cmd: "end"   # Velocity/BungeeCord
+  ```
+  
+  **Try manual stop:**
+  1. Go to Console SMP thread
+  2. Type `stop` directly
+  3. Does it work?
+  
+  **Use kill if stuck:**
+  ```bash
+  !!kill SMP  # Force terminate
+  ```
+  
+  **Check plugins:**
+  - Some plugins intercept shutdown
+  - Disable problematic plugins
+</Accordion>
+
+<Accordion title="Processes keep crashing">
+  **Symptoms:**
+  - Server starts then immediately stops
+  - Console shows crash errors
+  - Repeated restart loops
+  
+  **Debugging steps:**
+  
+  **Check console output:**
+  - Read the Console thread for errors
+  - Look for Java exceptions
+  - Note any "FATAL" or "ERROR" messages
+  
+  **Common crash causes:**
+  
+  1. **Out of memory:**
+     ```
+     java.lang.OutOfMemoryError: Java heap space
+     ```
+     **Solution:** Increase `-Xmx` value
+  
+  2. **Corrupted world:**
+     ```
+     Exception reading world data
+     ```
+     **Solution:** Restore from backup
+  
+  3. **Plugin conflicts:**
+     ```
+     Error loading plugin XYZ
+     ```
+     **Solution:** Remove/update the plugin
+  
+  4. **Wrong Java version:**
+     ```
+     Unsupported class file major version
+     ```
+     **Solution:** Install correct Java version
+  
+  **Test in safe mode:**
+  1. Rename `plugins/` to `plugins.backup/`
+  2. Start server
+  3. If it works, add plugins back one by one
+</Accordion>
+
+## Plugin & Addon Issues
+
+<Accordion title="Plugins not loading">
+  **Symptoms:**
+  - `!!mdreload SMP` completes but plugin doesn't work
+  - No "Plugin imported" message
+  
+  **Checklist:**
+  
+  **Verify file location:**
+  ```
+  McDis/SMP/.mdplugins/your_plugin.py  ✓
+  McDis/.mdaddons/your_plugin.py       ✗ (wrong location)
+  ```
+  
+  **Check class name:**
+  ```python
+  # Correct
+  class mdplugin:
+      def __init__(self, client):
+  
+  # Wrong
+  class MyPlugin:  # Should be 'mdplugin'
+  ```
+  
+  **Check for syntax errors:**
+  ```bash
+  python -m py_compile McDis/SMP/.mdplugins/your_plugin.py
+  ```
+  
+  **Look for import errors:**
+  - Check Error Reports thread
+  - Terminal may show import failures
+  
+  **Process must be running:**
+  ```bash
+  !!start SMP      # Start first
+  !!mdreload SMP   # Then reload
+  ```
+</Accordion>
+
+<Accordion title="Addons not working">
+  **Symptoms:**
+  - `!!adreload` runs but addon doesn't respond
+  - No events being triggered
+  
+  **Differences from plugins:**
+  
+  **Class name:**
+  ```python
+  # Addons use 'mdaddon'
+  class mdaddon:  # Not 'mdplugin'
+      def __init__(self, client):
+  ```
+  
+  **Event names:**
+  ```python
+  # Addons: no 'listener_' prefix
+  async def on_message(self, message):  # Correct
+  
+  # Plugins: with 'listener_' prefix
+  async def listener_on_message(self, message):  # For plugins
+  ```
+  
+  **File location:**
+  ```
+  McDis/.mdaddons/your_addon.py  ✓
+  ```
+  
+  **Folder-based addons:**
+  ```
+  McDis/.mdaddons/my_addon/
+  ├── __init__.py  ← Must contain 'mdaddon' class
+  └── helpers.py
+  ```
+  
+  **Reload:**
+  ```bash
+  !!adreload  # No process name needed
+  ```
+</Accordion>
+
+<Accordion title="Plugin errors in Error Reports">
+  **What to check:**
+  
+  1. **Read the traceback:**
+     - Error Reports thread shows full stack trace
+     - Look for line numbers
+     - Identify which function failed
+  
+  2. **Common errors:**
+     
+     **AttributeError:**
+     ```python
+     AttributeError: 'NoneType' object has no attribute 'id'
+     ```
+     **Cause:** Accessing object that doesn't exist  
+     **Fix:** Add null checks
+     ```python
+     if self.client.panel:
+         await self.client.panel.send("message")
+     ```
+     
+     **TypeError:**
+     ```python
+     TypeError: object str can't be used in 'await' expression
+     ```
+     **Cause:** Missing `async`/`await`  
+     **Fix:** Make function async
+     ```python
+     async def listener_on_message(self, message):
+         await message.channel.send("Hello")
+     ```
+     
+     **ImportError:**
+     ```python
+     ImportError: No module named 'requests'
+     ```
+     **Cause:** Missing dependency  
+     **Fix:** Install the module
+     ```bash
+     pip install requests
+     ```
+  
+  3. **Debug with print statements:**
+     ```python
+     def listener_events(self, log: str):
+         print(f"DEBUG: Received log: {log}")
+         # Your code here
+     ```
+</Accordion>
+
+## File Manager Issues
+
+<Accordion title="File Manager not showing files">
+  **Symptoms:**
+  - Dropdown is empty
+  - Can't navigate folders
+  
+  **Solutions:**
+  
+  **Click reload:**
+  - Press 🔄 button
+  
+  **Check path:**
+  - Use 📌 to navigate to a known path
+  - Ensure you're in a valid McDis folder
+  
+  **Over 25 files:**
+  - Dropdown only shows first 25 items
+  - Use Terminal for folders with many files
+  
+  **Permissions:**
+  - Ensure McDis-RCON can read the folder
+  - Check file permissions on Linux
+</Accordion>
+
+<Accordion title="Can't upload files">
+  **Symptoms:**
+  - Uploader enabled but files not saving
+  - "Saving files..." message but nothing happens
+  
+  **Checklist:**
+  
+  **Uploader status:**
+  - Tools → Uploader → Status: **Run**
+  
+  **Valid path:**
+  - Path must start with `McDis/`
+  - Path must exist
+  - Example: `McDis/SMP/plugins`
+  
+  **File permissions:**
+  ```bash
+  # Linux - check write permissions
+  ls -la McDis/SMP/plugins
+  # Should show write permissions for user
+  ```
+  
+  **Discord upload limit:**
+  - Files must be under Discord's upload limit (8MB for free, 100MB for Nitro)
+  - For larger files, use File Manager upload or manual methods
+  
+  **Overwrite mode:**
+  - If file exists and overwrite is disabled, upload is skipped
+  - Enable overwrite or rename file
+</Accordion>
+
+<Accordion title="Can't download large files">
+  **Problem:** Files over 5MB won't download
+  
+  **Solution:** Use Flask integration
+  
+  <Steps>
+    <Step title="Enable Flask">
+      ```yaml md_config.yml
+      Flask:
+        Allow: true
+        IP: "your_public_ip"
+        Port: 5000
+      ```
+    </Step>
+    
+    <Step title="Start Flask server">
+      Tools → Flask → Run
+    </Step>
+    
+    <Step title="Request file">
+      File Manager → Select file → Request
+    </Step>
+    
+    <Step title="Use download link">
+      Click the generated HTTP link
+    </Step>
+  </Steps>
+  
+  See [Flask Integration](/guides/flask-integration) for details.
+</Accordion>
+
+## Backup Issues
+
+<Accordion title="Backup creation fails">
+  **Symptoms:**
+  - "Create backup" option doesn't work
+  - Backup process hangs
+  
+  **Common causes:**
+  
+  **Process still running:**
+  - Backups require the process to be stopped
+  - Solution:
+    ```bash
+    !!stop SMP
+    # Wait for full stop
+    # Then create backup
+    ```
+  
+  **Insufficient disk space:**
+  ```bash
+  df -h  # Check available space
+  ```
+  - Backups compress but still need space
+  - Free up disk space if needed
+  
+  **Large world size:**
+  - Very large worlds (10GB+) take time to compress
+  - Be patient, check progress in terminal
+  
+  **File permissions:**
+  ```bash
+  ls -la McDis/.mdbackups/
+  # Ensure write permissions
+  ```
+</Accordion>
+
+<Accordion title="Can't restore from backup">
+  **Steps to restore:**
+  
+  <Steps>
+    <Step title="Stop the server">
+      ```bash
+      !!stop SMP
+      ```
+    </Step>
+    
+    <Step title="Download backup">
+      Navigate to `.mdbackups/SMP/` and request the backup file
+    </Step>
+    
+    <Step title="Clear server folder">
+      ```bash
+      # Backup current state first!
+      mv McDis/SMP McDis/SMP.old
+      mkdir McDis/SMP
+      ```
+    </Step>
+    
+    <Step title="Extract backup">
+      ```bash
+      unzip "SMP 1.zip" -d McDis/SMP/
+      ```
+    </Step>
+    
+    <Step title="Remove backup log">
+      ```bash
+      rm McDis/SMP/backup_log.txt
+      ```
+    </Step>
+    
+    <Step title="Start server">
+      ```bash
+      !!start SMP
+      ```
+    </Step>
+  </Steps>
+</Accordion>
+
+## Performance Issues
+
+<Accordion title="High memory usage">
+  **Symptoms:**
+  - Server sluggish
+  - System running out of RAM
+  
+  **Check memory usage:**
+  - Tools → Processes → Check RAM per process
+  
+  **Solutions:**
+  
+  **Adjust JVM flags:**
+  ```yaml md_config.yml
+  start_cmd: "java -Xmx4G -Xms4G -jar server.jar nogui"
+  # -Xms = initial heap
+  # -Xmx = maximum heap
+  ```
+  
+  **Optimize JVM:**
+  ```yaml
+  start_cmd: "java -Xmx4G -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:MaxGCPauseMillis=200 -XX:+UnlockExperimentalVMOptions -XX:+DisableExplicitGC -XX:+AlwaysPreTouch -XX:G1NewSizePercent=30 -XX:G1MaxNewSizePercent=40 -XX:G1HeapRegionSize=8M -XX:G1ReservePercent=20 -XX:G1HeapWastePercent=5 -XX:G1MixedGCCountTarget=4 -XX:InitiatingHeapOccupancyPercent=15 -XX:G1MixedGCLiveThresholdPercent=90 -XX:G1RSetUpdatingPauseTimePercent=5 -XX:SurvivorRatio=32 -XX:+PerfDisableSharedMem -XX:MaxTenuringThreshold=1 -jar server.jar nogui"
+  ```
+  
+  **Reduce view distance:**
+  ```properties server.properties
+  view-distance=8  # Lower = less RAM
+  ```
+  
+  **Remove unused plugins:**
+  - Disable plugins you don't need
+</Accordion>
+
+<Accordion title="Console lag / delayed messages">
+  **Symptoms:**
+  - Console messages appear slowly in Discord
+  - Backlog of messages
+  
+  **Causes:**
+  - Server producing logs faster than Discord can send
+  - McDis-RCON queues messages
+  
+  **Solutions:**
+  
+  **Use blacklist:**
+  ```yaml md_config.yml
+  blacklist:
+    - "[debug]"
+    - "[FML]"
+    - "Can't keep up!"
+  # Filter verbose logs
+  ```
+  
+  **Reduce server verbosity:**
+  - Configure server logging levels
+  - Disable debug plugins
+  
+  **Restart McDis-RCON:**
+  - Clears message queue
+  - Resets relay
+</Accordion>
+
+## Discord Integration Issues
+
+<Accordion title="Bot not responding to commands">
+  **Symptoms:**
+  - `!!start SMP` does nothing
+  - Commands don't work
+  
+  **Checklist:**
+  
+  **Correct channel:**
+  - Commands only work in the panel channel
+  - Or in process console threads
+  
+  **Correct prefix:**
+  - Discord: `!!start SMP` (with `!!`)
+  - Console thread: `start` (no prefix)
+  
+  **Command format:**
+  ```bash
+  # Correct
+  !!start SMP
+  !!start-all
+  
+  # Wrong
+  !!start smp  # Actually, case-insensitive, this works
+  !! start SMP  # Space after prefix - won't work
+  start SMP     # Missing prefix in panel channel
+  ```
+  
+  **Bot permissions:**
+  - Ensure bot can read messages
+  - Grant Administrator for simplicity
+</Accordion>
+
+<Accordion title="Error Reports thread missing">
+  **Problem:** Can't find "Error Reports" thread
+  
+  **Solutions:**
+  
+  **Check thread list:**
+  - Click "Threads" in Discord
+  - Look for archived threads
+  
+  **Thread auto-created:**
+  - McDis-RCON creates it automatically
+  - Should appear when first error occurs
+  
+  **Recreate:**
+  - Restart McDis-RCON
+  - Threads are recreated on startup
+</Accordion>
+
+## Getting Help
+
+If you can't resolve your issue:
+
+<Steps>
+  <Step title="Gather information">
+    - McDis-RCON version: `pip show mcdis-rcon`
+    - Python version: `python --version`
+    - Operating system
+    - Error messages from:
+      - Terminal output
+      - Error Reports thread
+      - Console threads
+  </Step>
+  
+  <Step title="Check existing issues">
+    Visit the [GitHub Issues](https://github.com/mjpr-3435/McDis-RCON/issues) page to see if your problem is already reported
+  </Step>
+  
+  <Step title="Create a bug report">
+    If no existing issue, create a new one with:
+    - Clear description of the problem
+    - Steps to reproduce
+    - Expected vs actual behavior
+    - Error messages/logs
+    - Configuration (remove sensitive data like bot tokens)
+  </Step>
+</Steps>
+
+<Warning>
+**Never share your bot token publicly.** Remove it from logs and config files before posting.
+</Warning>
+
+## Useful Commands for Debugging
+
+```bash
+# Check McDis-RCON version
+pip show mcdis-rcon
+
+# Check Python version
+python --version
+
+# Validate md_config.yml syntax
+python -c "import yaml; yaml.safe_load(open('md_config.yml'))"
+
+# Check running processes
+ps aux | grep java
+
+# Check port usage
+netstat -tuln | grep 25565
+
+# Check disk space
+df -h
+
+# Check memory usage
+free -h
+
+# View McDis-RCON logs
+tail -f mcdis.log  # If logging to file
+
+# Test Discord API connectivity
+curl https://discord.com/api/v10/gateway
+```
+
+## Common Error Messages
+
+| Error | Meaning | Solution |
+|-------|---------|----------|
+| `KeyError: 'Bot Token'` | Missing config key | Regenerate config with `mcdis init` |
+| `discord.errors.LoginFailure` | Invalid bot token | Check token in Discord Developer Portal |
+| `Channel with id X not found` | Wrong channel ID | Update Panel ID in config |
+| `Address already in use` | Port conflict | Change port or stop conflicting service |
+| `Permission denied` | Insufficient permissions | Check file/folder permissions |
+| `Module not found` | Missing dependency | Run `pip install mcdis-rcon` |
+
+<Info>
+For more detailed troubleshooting, enable debug logging in your plugins/addons with `print()` statements.
+</Info>

@@ -1,97 +1,187 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "McDis-RCON Documentation"
+description: "Stream your Minecraft server console to Discord for remote management through an interactive Discord bot interface."
 ---
 
-## Setting up
+<div style={{
+  background: 'linear-gradient(135deg, #94cb04 0%, #545454 100%)',
+  borderRadius: '8px',
+  padding: '48px 32px',
+  marginBottom: '32px',
+  color: '#ffffff'
+}}>
+  <h1 style={{
+    fontSize: '48px',
+    fontWeight: '700',
+    marginBottom: '16px',
+    color: '#ffffff'
+  }}>
+    McDis-RCON
+  </h1>
+  <p style={{
+    fontSize: '18px',
+    marginBottom: '24px',
+    color: '#ffffff',
+    opacity: '0.95'
+  }}>
+    Manage your Minecraft servers remotely through Discord with console streaming, file management, and automated backups.
+  </p>
+</div>
 
-Get your documentation site up and running in minutes.
+## Get Started
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+Set up McDis-RCON and manage your first Minecraft server in minutes.
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="Introduction"
+    icon="book-open"
+    href="/introduction"
   >
-    Edit your docs locally and preview them in real time.
+    Learn about McDis-RCON's features and capabilities
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
   >
-    Customize the design and colors of your site to match your brand.
-  </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+    Get up and running in under 5 minutes
   </Card>
   <Card
-    title="API documentation"
+    title="Installation"
+    icon="download"
+    href="/installation"
+  >
+    Install McDis-RCON on your system
+  </Card>
+  <Card
+    title="Discord Setup"
+    icon="discord"
+    href="/configuration/discord-setup"
+  >
+    Configure your Discord bot and permissions
+  </Card>
+</CardGroup>
+
+## Core Features
+
+McDis-RCON provides everything you need to manage Minecraft servers through Discord.
+
+<CardGroup cols={3}>
+  <Card
+    title="Process Control"
+    icon="gears"
+    href="/features/process-control"
+  >
+    Start, stop, restart, and kill server processes
+  </Card>
+  <Card
+    title="Console Relay"
     icon="terminal"
-    href="/api-reference/introduction"
+    href="/features/console-relay"
   >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+    View and interact with server console in real-time
   </Card>
   <Card
-    title="Code samples"
+    title="File Manager"
+    icon="folder"
+    href="/features/file-manager"
+  >
+    Manage server files directly from Discord
+  </Card>
+  <Card
+    title="Backup System"
+    icon="floppy-disk"
+    href="/features/backup-system"
+  >
+    Automated backup creation and management
+  </Card>
+  <Card
+    title="Discord Panel"
+    icon="table-columns"
+    href="/features/discord-panel"
+  >
+    Interactive Discord UI for server management
+  </Card>
+  <Card
+    title="Multiple Servers"
+    icon="server"
+    href="/guides/multiple-servers"
+  >
+    Manage multiple servers simultaneously
+  </Card>
+</CardGroup>
+
+## Extend McDis-RCON
+
+Customize and extend functionality with plugins and addons.
+
+<CardGroup cols={2}>
+  <Card
+    title="Plugins"
+    icon="puzzle-piece"
+    href="/guides/plugins-overview"
+  >
+    Extend functionality for active processes
+  </Card>
+  <Card
+    title="Addons"
+    icon="plus"
+    href="/guides/addons-overview"
+  >
+    Add features without requiring active processes
+  </Card>
+  <Card
+    title="Creating Plugins"
     icon="code"
-    href="/essentials/code"
+    href="/guides/creating-plugins"
   >
-    Add sample code to demonstrate how to use your product.
+    Build custom plugins for your servers
   </Card>
   <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
+    title="Creating Addons"
+    icon="wrench"
+    href="/guides/creating-addons"
   >
-    Display images and other media.
+    Develop addons to extend the bot
+  </Card>
+</CardGroup>
+
+## Why McDis-RCON?
+
+<AccordionGroup>
+  <Accordion title="Remote Server Management">
+    Control your Minecraft servers from anywhere using Discord. No need for SSH or VNC connections - everything runs through a familiar Discord interface.
+  </Accordion>
+  <Accordion title="Multiple Server Support">
+    Manage multiple Minecraft servers (Fabric, Paper, Vanilla, Velocity) simultaneously from a single Discord bot.
+  </Accordion>
+  <Accordion title="Advanced Error Reporting">
+    Automatic error detection and Discord notifications simplify monitoring and troubleshooting.
+  </Accordion>
+  <Accordion title="Plugin & Addon System">
+    Extend functionality through plugins (process-specific) and addons (bot-wide) using Python.
+  </Accordion>
+  <Accordion title="Compatible with MCDReforged">
+    Works alongside MCDReforged without modifying your Minecraft server files.
+  </Accordion>
+</AccordionGroup>
+
+## Community & Support
+
+<CardGroup cols={2}>
+  <Card
+    title="Join Discord"
+    icon="discord"
+    href="https://discord.gg/xB9N38HBJY"
+  >
+    Get help and share ideas with the community
   </Card>
   <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
+    title="GitHub Repository"
+    icon="github"
+    href="https://github.com/mjpr-3435/McDis-RCON"
   >
-    Write once and reuse across your docs.
+    View source code and contribute to the project
   </Card>
-</Columns>
-
-## Need inspiration?
-
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+</CardGroup>

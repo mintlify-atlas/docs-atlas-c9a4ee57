@@ -1,0 +1,445 @@
+---
+title: Discord Setup
+description: Configure Discord bot token and permissions for McDis-RCON
+---
+
+McDis-RCON requires a Discord bot to function. This guide walks you through creating a bot, obtaining its token, and configuring proper permissions.
+
+## Creating a Discord Bot
+
+<Steps>
+  <Step title="Access Developer Portal">
+    Go to the [Discord Developer Portal](https://discord.com/developers/applications)
+    
+    Log in with your Discord account
+  </Step>
+  
+  <Step title="Create New Application">
+    Click **New Application** in the top-right corner
+    
+    Enter a name for your application (e.g., "McDis RCON" or "Server Manager")
+    
+    Click **Create**
+  </Step>
+  
+  <Step title="Navigate to Bot Section">
+    In the left sidebar, click **Bot**
+    
+    Click **Add Bot**
+    
+    Confirm by clicking **Yes, do it!**
+  </Step>
+  
+  <Step title="Configure Bot Settings">
+    **Username**: Set your bot's username (e.g., "McDis Bot")
+    
+    **Icon**: Optionally upload a profile picture
+    
+    **Public Bot**: Toggle OFF (recommended to prevent others from inviting your bot)
+    
+    **Requires OAuth2 Code Grant**: Leave OFF
+  </Step>
+  
+  <Step title="Enable Privileged Intents">
+    Scroll down to **Privileged Gateway Intents**
+    
+    Enable:
+    - ☑️ **Presence Intent**
+    - ☑️ **Server Members Intent**
+    - ☑️ **Message Content Intent** (required)
+    
+    Click **Save Changes**
+  </Step>
+</Steps>
+
+<Warning>
+  **Message Content Intent is required!** Without it, McDis-RCON cannot read commands sent in Discord.
+</Warning>
+
+## Obtaining Bot Token
+
+<Steps>
+  <Step title="View Token">
+    In the **Bot** section, find **Token**
+    
+    Click **Reset Token** (if first time) or **Copy** (if token already exists)
+  </Step>
+  
+  <Step title="Copy Token">
+    Click **Copy** to copy the token to your clipboard
+    
+    **IMPORTANT**: Keep this token secret! Anyone with this token can control your bot.
+  </Step>
+  
+  <Step title="Add to Configuration">
+    Open your `md_config.yml` file:
+    
+    ```yaml
+    Bot Token: YOUR_TOKEN_HERE
+    ```
+    
+    Replace `YOUR_TOKEN_HERE` with your copied token
+  </Step>
+</Steps>
+
+<Warning>
+  **Never share your bot token!**
+  - Don't commit it to public Git repositories
+  - Don't share screenshots containing it
+  - Don't share configuration files containing it
+  - Regenerate the token immediately if exposed
+</Warning>
+
+## Inviting Bot to Server
+
+<Steps>
+  <Step title="Generate Invite URL">
+    In Discord Developer Portal, go to **OAuth2** → **URL Generator**
+    
+    Under **Scopes**, select:
+    - ☑️ `bot`
+  </Step>
+  
+  <Step title="Select Permissions">
+    Under **Bot Permissions**, select:
+    
+    **Recommended (simplest):**
+    - ☑️ **Administrator**
+    
+    **Or specific permissions:**
+    - ☑️ Read Messages/View Channels
+    - ☑️ Send Messages
+    - ☑️ Manage Messages
+    - ☑️ Embed Links
+    - ☑️ Attach Files
+    - ☑️ Read Message History
+    - ☑️ Manage Threads
+    - ☑️ Create Public Threads
+    - ☑️ Send Messages in Threads
+  </Step>
+  
+  <Step title="Copy Invite URL">
+    Scroll down and copy the generated URL
+  </Step>
+  
+  <Step title="Invite Bot">
+    Open the URL in your browser
+    
+    Select the server where you want to add the bot
+    
+    Click **Authorize**
+    
+    Complete the CAPTCHA if prompted
+  </Step>
+  
+  <Step title="Verify Bot Joined">
+    Check your Discord server's member list
+    
+    Your bot should appear offline (it will come online when you start McDis-RCON)
+  </Step>
+</Steps>
+
+<Tip>
+  **Why Administrator?** Granting Administrator permissions is the simplest approach and prevents permission-related issues with panel generation, thread management, and message control.
+</Tip>
+
+## Setting Panel Channel
+
+<Steps>
+  <Step title="Create Panel Channel">
+    In your Discord server, create a new text channel
+    
+    Recommended name: `mcdis-panel`, `server-control`, or similar
+  </Step>
+  
+  <Step title="Enable Developer Mode">
+    In Discord:
+    - Click User Settings (gear icon)
+    - Go to **Advanced**
+    - Enable **Developer Mode**
+  </Step>
+  
+  <Step title="Copy Channel ID">
+    Right-click the panel channel
+    
+    Select **Copy ID**
+  </Step>
+  
+  <Step title="Add to Configuration">
+    Open `md_config.yml`:
+    
+    ```yaml
+    Panel ID: 1234567890123456789
+    ```
+    
+    Replace the number with your copied channel ID
+  </Step>
+</Steps>
+
+<Note>
+  The Panel ID is a long number (18-19 digits). Make sure you copy the channel ID, not the server ID or a user ID.
+</Note>
+
+## Channel Permissions
+
+Ensure the bot has access to the panel channel:
+
+### Option 1: Default Channel Permissions
+
+If the bot has Administrator permission server-wide, it automatically has access to all channels.
+
+### Option 2: Channel-Specific Permissions
+
+If not using Administrator:
+
+<Steps>
+  <Step title="Channel Settings">
+    Right-click the panel channel → **Edit Channel**
+  </Step>
+  
+  <Step title="Permissions Tab">
+    Go to **Permissions**
+  </Step>
+  
+  <Step title="Add Bot Role">
+    Click **+** next to "Roles/Members"
+    
+    Select your bot's role or the bot itself
+  </Step>
+  
+  <Step title="Grant Permissions">
+    Enable the following permissions:
+    - ☑️ View Channel
+    - ☑️ Send Messages
+    - ☑️ Manage Messages
+    - ☑️ Embed Links
+    - ☑️ Attach Files
+    - ☑️ Read Message History
+    - ☑️ Create Public Threads
+    - ☑️ Manage Threads
+    - ☑️ Send Messages in Threads
+  </Step>
+  
+  <Step title="Save Changes">
+    Click **Save Changes**
+  </Step>
+</Steps>
+
+## Testing Bot Connection
+
+After configuration, test the connection:
+
+<Steps>
+  <Step title="Start McDis">
+    Run McDis-RCON:
+    
+    ```bash
+    mcdis run
+    ```
+  </Step>
+  
+  <Step title="Check Startup Logs">
+    You should see:
+    
+    ```bash
+    Initializing McDis RCON v0.4.30a...
+    Your configuration has been loaded successfully.
+    [INFO] discord.client: logging in using static token
+    [INFO] discord.gateway: Shard ID None has connected to Gateway
+    Logged in as Your Bot Name#1234!
+    ```
+  </Step>
+  
+  <Step title="Verify Bot Online">
+    Check your Discord server - the bot should now show as online
+  </Step>
+  
+  <Step title="Check Panel Channel">
+    Go to your panel channel - you should see:
+    - Panel message with buttons
+    - Console threads created
+  </Step>
+</Steps>
+
+## Troubleshooting Discord Setup
+
+<AccordionGroup>
+  <Accordion title="Bot won't connect / Invalid token error">
+    **Possible causes:**
+    - Token is incorrect or incomplete
+    - Token has been regenerated
+    - Token contains extra spaces
+    
+    **Solutions:**
+    - Copy the token again from Developer Portal
+    - Ensure no spaces before/after token in config
+    - Try regenerating token and using the new one
+  </Accordion>
+  
+  <Accordion title="Panel channel not found error">
+    **Error message:**
+    ```
+    Error: Channel with id 123456789 not found.
+    ```
+    
+    **Possible causes:**
+    - Panel ID is incorrect
+    - Bot doesn't have access to channel
+    - Channel was deleted
+    
+    **Solutions:**
+    - Verify you copied the channel ID, not server ID
+    - Ensure bot is in the server
+    - Check channel permissions
+    - Recreate channel and copy new ID
+  </Accordion>
+  
+  <Accordion title="Bot can't create threads">
+    **Possible causes:**
+    - Bot lacks "Create Public Threads" permission
+    - Bot lacks "Manage Threads" permission
+    - Server thread limit reached
+    
+    **Solutions:**
+    - Grant Administrator permission
+    - Or grant specific thread permissions
+    - Archive old unused threads
+  </Accordion>
+  
+  <Accordion title="Bot can't read commands">
+    **Possible causes:**
+    - Message Content Intent not enabled
+    - Bot lacks Read Messages permission
+    
+    **Solutions:**
+    - Enable Message Content Intent in Developer Portal
+    - Grant Read Messages/View Channels permission
+    - Restart bot after enabling intent
+  </Accordion>
+  
+  <Accordion title="Bot appears offline">
+    **Possible causes:**
+    - McDis-RCON not running
+    - Connection issues
+    - Discord API outage
+    
+    **Solutions:**
+    - Start McDis with `mcdis run`
+    - Check internet connectivity
+    - Check [Discord Status](https://discordstatus.com)
+  </Accordion>
+</AccordionGroup>
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Token Security" icon="key">
+    - Never share your bot token
+    - Use environment variables in production
+    - Regenerate token if exposed
+    - Don't commit token to Git
+  </Card>
+  <Card title="Permission Principle" icon="shield">
+    - Use minimum required permissions
+    - Or use Administrator for simplicity
+    - Restrict panel channel access
+    - Limit who can control servers
+  </Card>
+  <Card title="Public Bot" icon="globe">
+    - Keep "Public Bot" disabled
+    - Prevents unauthorized invites
+    - Only you can invite your bot
+  </Card>
+  <Card title="Server Security" icon="lock">
+    - Use role-based channel access
+    - Audit who has panel access
+    - Monitor Error Reports thread
+    - Review console thread activity
+  </Card>
+</CardGroup>
+
+## Advanced: Using Environment Variables
+
+For production deployments, consider using environment variables:
+
+### Setup
+
+```bash
+# Create .env file
+echo "MCDIS_BOT_TOKEN=your_token_here" > .env
+
+# Don't commit .env
+echo ".env" >> .gitignore
+```
+
+### Modify Configuration Loading
+
+You would need to modify McDis source to read from environment:
+
+```python
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+token = os.getenv('MCDIS_BOT_TOKEN')
+```
+
+<Note>
+  This requires modifying McDis-RCON source code, which is not officially supported but can be done for advanced users.
+</Note>
+
+## Language Configuration
+
+McDis-RCON supports multiple languages:
+
+```yaml
+### Language that McDis will use.
+### Valid Values: [en, es]
+### Default Value: en
+Language: en
+```
+
+**Available languages:**
+- `en` - English (default)
+- `es` - Spanish (Español)
+
+All Discord messages, panel text, and responses will use the configured language.
+
+## Configuration Example
+
+Complete Discord configuration section:
+
+```yaml
+# =========================================
+#         McDis RCON Configuration
+# =========================================
+
+### Discord Bot Token
+### Get from: https://discord.com/developers/applications
+Bot Token: MTIzNDU2Nzg5MDEyMzQ1Njc4OQ.GaBcDe.FgHiJkLmNoPqRsTuVwXyZaBcDeFgHiJkLmNoPqRs
+
+### Panel Channel ID
+### Enable Developer Mode in Discord, right-click channel, Copy ID
+Panel ID: 987654321098765432
+
+### Interface Language
+Language: en
+```
+
+## Related Configuration
+
+<CardGroup cols={2}>
+  <Card title="Configuration Overview" icon="book" href="/configuration/overview">
+    Complete configuration file reference
+  </Card>
+  <Card title="Process Setup" icon="server" href="/configuration/process-setup">
+    Configure servers and networks
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Complete setup walkthrough
+  </Card>
+  <Card title="Discord Panel" icon="grid" href="/features/discord-panel">
+    Using the Discord interface
+  </Card>
+</CardGroup>

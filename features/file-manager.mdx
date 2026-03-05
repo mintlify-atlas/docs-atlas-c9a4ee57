@@ -1,0 +1,511 @@
+---
+title: File Manager
+description: Manage server files directly through Discord with McDis-RCON
+---
+
+McDis-RCON includes a comprehensive file management system that allows you to browse, edit, upload, download, and manage server files directly through Discord—no SSH or FTP required.
+
+<img src="https://i.imgur.com/PcJ5afz.png" alt="File Manager Interface" />
+
+## Accessing the File Manager
+
+Click the **Files** button in the Discord panel to open the file manager interface.
+
+The file manager displays:
+- Current directory path
+- Navigation controls
+- Dropdown menu with up to 25 items
+- File/folder selection interface
+
+<Note>
+  The file manager is restricted to the McDis directory (where `md_config.yml` is located). You cannot navigate outside this directory.
+</Note>
+
+## Navigation Controls
+
+The file manager interface includes several control buttons:
+
+<CardGroup cols={2}>
+  <Card title="⬅️ Back" icon="arrow-left">
+    Return to the previous directory level
+  </Card>
+  <Card title="🔄 Reload" icon="rotate-right">
+    Refresh the current view
+  </Card>
+  <Card title="📌 Go To Path" icon="location-dot">
+    Jump to a specific directory path
+  </Card>
+  <Card title="Terminal" icon="terminal">
+    Open advanced file operations terminal
+  </Card>
+</CardGroup>
+
+### Using the Dropdown
+
+The dropdown menu shows the first 25 items in the current directory:
+
+- **Folders** are listed first
+- **Files** are listed after folders
+- Select an item to navigate (folders) or view options (files)
+
+<Tip>
+  In directories with more than 25 items, use the **Terminal** for full access or the **📌 Go To Path** button to navigate directly.
+</Tip>
+
+## File Operations
+
+When you select a file (not a folder), additional buttons appear:
+
+<img src="https://i.imgur.com/5tPw9DQ.png" alt="File Operations" />
+
+### Request (Download)
+
+Download files to your device:
+
+**For files ≤ 5MB:**
+- File is attached directly to Discord message
+- Instant download
+
+**For files > 5MB:**
+- Requires Flask server to be enabled
+- Generates a download link
+- Link can be single-use or multi-use
+- Link can be temporary or persistent
+- Download tracked in Console Flask thread
+
+<Warning>
+  Discord has a 5MB attachment limit for most servers. For larger files, you must configure the Flask server in `md_config.yml`.
+</Warning>
+
+### Edit (Rename)
+
+Rename files and folders:
+
+1. Click **Edit** button
+2. Enter new name in modal
+3. File/folder is renamed instantly
+
+<Note>
+  Renaming preserves file extensions automatically. Just enter the new base name.
+</Note>
+
+### Delete
+
+Permanently delete files or folders:
+
+1. Click **Delete** button
+2. Confirm deletion
+3. File/folder is removed immediately
+
+<Warning>
+  **Deletion is permanent!** There is no recycle bin. Ensure you have backups before deleting important files.
+</Warning>
+
+## Text File Editor
+
+Text files get special treatment with a built-in editor:
+
+<img src="https://i.imgur.com/dSeIQg7.png" alt="Text File Preview" />
+
+### Preview Mode
+
+For all text files:
+- First 1024 characters are displayed in the embed
+- Syntax highlighting via Markdown code blocks
+- Full file available via **Request** button
+
+### Edit Mode
+
+For files < 4000 characters:
+
+<img src="https://i.imgur.com/ZV1NlQx.png" alt="Text File Editor" />
+
+1. Click **Edit** button
+2. Discord modal opens with file contents
+3. Make changes in the text box
+4. Submit to save changes
+
+<Info>
+  The 4000 character limit is due to Discord modal text input constraints. For larger files, download, edit locally, and re-upload.
+</Info>
+
+**Supported text file types:**
+- `.txt`, `.log`
+- `.yml`, `.yaml`, `.json`, `.toml`
+- `.properties`, `.cfg`, `.conf`
+- `.sh`, `.bat`, `.cmd`
+- `.py`, `.js`, `.java`, `.kt`
+- `.md`, `.html`, `.css`
+- And more...
+
+## Predefined Commands System
+
+Each process folder contains a `.mdcommands` subfolder for storing predefined command sequences:
+
+<img src="https://i.imgur.com/5r3AMUI.png" alt="Commands Interface" />
+
+### Accessing Commands
+
+Navigate to any process folder (e.g., `McDis/my_server/.mdcommands`):
+
+- **📦 Toggle View** - Switch between commands view and files view
+- **Dropdown** - Select existing command or create new one
+
+### Command Structure
+
+Commands are stored as YAML files:
+
+```yaml
+# McDis/my_server/.mdcommands/mobswitch.yml
+
+Reset:
+  - gamerule doMobSpawning false
+  - kill @e[type=!player]
+  - say Mobs cleared and spawning disabled
+
+Enable:
+  - gamerule doMobSpawning true
+  - say Mob spawning enabled
+
+Nether:
+  - execute in minecraft:the_nether run gamerule doMobSpawning false
+  - execute in minecraft:the_nether run kill @e[type=!player]
+```
+
+### Using Commands
+
+<img src="https://i.imgur.com/5KCcmi2.png" alt="Command Execution" />
+
+When viewing a command:
+
+- **Execute** - Run the selected action's commands
+- **Edit** - Open YAML file for editing
+- **Delete** - Remove the command file
+- **Dropdown** - Select which action to execute
+
+<Tip>
+  Predefined commands are excellent for complex multi-step operations like world resets, backups, or configuration changes.
+</Tip>
+
+## Backup Management
+
+Navigate to `McDis/.mdbackups/<process_name>` to access backup tools:
+
+<img src="https://i.imgur.com/seit7kJ.png" alt="Backup Interface" />
+
+### Creating Backups
+
+<Steps>
+  <Step title="Navigate to Backup Folder">
+    Go to `.mdbackups/<your_process_name>`
+  </Step>
+  
+  <Step title="Select Create Backup">
+    Choose "Create new backup" from the dropdown
+  </Step>
+  
+  <Step title="Stop Process">
+    McDis will prompt you to stop the process if it's running
+  </Step>
+  
+  <Step title="Wait for Completion">
+    Backup is created as a ZIP archive
+  </Step>
+</Steps>
+
+<Warning>
+  **Backups can only be created when the process is stopped** to ensure file consistency and prevent corruption.
+</Warning>
+
+### Backup Retention
+
+Backups are automatically managed:
+
+```yaml
+Backups: 3  # Keep 3 most recent backups
+```
+
+When a new backup is created:
+1. Existing backups are renamed (numbered)
+2. New backup becomes backup #1
+3. Backups exceeding the limit are automatically deleted
+
+### Restoring Backups
+
+<Steps>
+  <Step title="Select Backup">
+    Choose the backup version from dropdown
+  </Step>
+  
+  <Step title="Confirm Restoration">
+    Confirm you want to restore (will delete current files)
+  </Step>
+  
+  <Step title="Wait for Extraction">
+    Backup is extracted to the process folder
+  </Step>
+  
+  <Step title="Start Process">
+    Restart your server to use restored files
+  </Step>
+</Steps>
+
+<Warning>
+  **Restoration deletes all current files** in the process folder before extracting the backup. This action cannot be undone!
+</Warning>
+
+## File Manager Terminal
+
+For advanced operations, use the integrated terminal:
+
+<img src="https://i.imgur.com/xgPt5hs.png" alt="File Manager Terminal" />
+
+Click the **Terminal** button to access advanced file operations.
+
+### Available Terminal Commands
+
+The terminal supports various file operations:
+
+- **Navigation**: `cd`, `ls`, `pwd`
+- **File operations**: `cp`, `mv`, `rm`, `touch`
+- **Directory operations**: `mkdir`, `rmdir`
+- **Viewing**: `cat`, `head`, `tail`
+- **Compression**: `zip`, `unzip`, `tar`
+- **Search**: `find`, `grep`
+- **Permissions**: `chmod` (Linux only)
+
+<Info>
+  All terminal operations are restricted to the McDis directory. You cannot access files outside this location.
+</Info>
+
+### Terminal Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Absolute Paths" icon="route">
+    Prefix paths with `McDis/` to avoid confusion
+  </Card>
+  <Card title="Test Before Deleting" icon="shield">
+    Use `ls` to verify paths before running `rm` commands
+  </Card>
+  <Card title="Quote Spaces" icon="quotes">
+    Use quotes for paths with spaces: `"McDis/My Server"`
+  </Card>
+  <Card title="Compress Large Transfers" icon="file-zipper">
+    ZIP folders before downloading to reduce size
+  </Card>
+</CardGroup>
+
+## File Upload System
+
+Upload files to your server through the Discord panel:
+
+### Enabling Uploader
+
+<Steps>
+  <Step title="Click Tools Button">
+    In the main panel, click **Tools**
+  </Step>
+  
+  <Step title="Click Uploader">
+    Select the Uploader option
+  </Step>
+  
+  <Step title="Set Target Path">
+    Click **📌** and enter the destination directory
+  </Step>
+  
+  <Step title="Configure Overwrite">
+    Toggle between "Overwrite" and "Do Not Overwrite"
+  </Step>
+  
+  <Step title="Activate Uploader">
+    Click **Run** to enable upload mode
+  </Step>
+</Steps>
+
+<img src="https://i.imgur.com/hL2tnDv.png" alt="Uploader Interface" />
+
+### Uploading Files
+
+Once the uploader is active:
+
+1. Drag and drop files into the panel channel
+2. Or use Discord's file attachment button
+3. Files are automatically saved to the configured path
+4. Progress is shown in the channel
+5. Original message is deleted after upload
+
+**Overwrite Modes:**
+
+- **Do Not Overwrite**: Existing files are skipped with a warning
+- **Overwrite**: Existing files are replaced without warning
+
+<Warning>
+  When uploader is active, **all files sent to the panel channel** are captured and uploaded. Disable it when not needed.
+</Warning>
+
+### Disabling Uploader
+
+Click the **Close** button to deactivate upload mode.
+
+## Flask Download Server
+
+For files larger than 5MB, configure the Flask server:
+
+### Configuration
+
+Edit `md_config.yml`:
+
+```yaml
+Flask:
+  Allow: true
+  IP: '0.0.0.0'      # Your public IP address
+  Port: 8000          # Port to listen on
+```
+
+<Warning>
+  **Security Notice:**
+  - Use your public IP, not internal (127.0.0.1)
+  - Ensure the port is open in your firewall
+  - Consider using a reverse proxy for production
+  - Links can be configured as single-use for security
+</Warning>
+
+### Flask Controls
+
+Access Flask settings in Tools → Flask:
+
+<img src="https://i.imgur.com/G1K8gP2.png" alt="Flask Controls" />
+
+- **Run/Close** - Start or stop the Flask server
+- **Single Use/Multi-Use** - Link usage policy
+- **Temporary/Persistent** - Link expiration policy
+
+### Download Tracking
+
+All Flask downloads are logged in the `Console Flask` thread:
+
+```
+[12:34:56] User @Admin requested download: server.jar
+[12:35:12] Download link used: server.jar
+[12:40:00] Download link expired: server.jar
+```
+
+## Directory Structure
+
+McDis-RCON automatically creates several directories:
+
+```
+McDis/
+├── md_config.yml
+├── banner.png (optional)
+├── .mdbackups/
+│   ├── server1/
+│   │   ├── server1 1.zip
+│   │   ├── server1 2.zip
+│   │   └── server1 3.zip
+│   └── server2/
+├── .mdaddons/
+│   ├── addon1.py
+│   └── addon2.py
+├── server1/
+│   ├── .mdplugins/
+│   │   └── plugin1.py
+│   ├── .mdcommands/
+│   │   └── backup.yml
+│   ├── server.jar
+│   └── ...
+└── server2/
+    └── ...
+```
+
+<Info>
+  Folders starting with `.md` are McDis-RCON system folders and should not be manually modified unless you know what you're doing.
+</Info>
+
+## File Manager Permissions
+
+<Warning>
+  **Linux Users:** The file manager may not function properly if McDis-RCON doesn't have permission to read/write files in the directory. Ensure proper ownership:
+  
+  ```bash
+  chown -R your_user:your_group /path/to/mcdis/
+  ```
+</Warning>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="File manager shows 'Permission denied'">
+    **Linux:** Ensure McDis-RCON has read/write permissions on the directory.
+    
+    ```bash
+    ls -la /path/to/mcdis/
+    chmod -R 755 /path/to/mcdis/
+    chown -R user:group /path/to/mcdis/
+    ```
+  </Accordion>
+  
+  <Accordion title="Can't download files larger than 5MB">
+    You must enable the Flask server:
+    
+    1. Configure Flask in `md_config.yml`
+    2. Open the required port in your firewall
+    3. Restart McDis-RCON
+    4. Enable Flask in Tools → Flask
+  </Accordion>
+  
+  <Accordion title="Uploaded files not appearing">
+    - Verify uploader is enabled (green "Run" button)
+    - Check target path is correct
+    - Ensure you have write permissions
+    - Check Discord for error messages
+  </Accordion>
+  
+  <Accordion title="Text editor won't open">
+    - File may be binary (not text)
+    - File may exceed 4000 characters
+    - Use Request to download and edit locally
+  </Accordion>
+  
+  <Accordion title="Backup creation fails">
+    - Ensure process is stopped first
+    - Check disk space availability
+    - Verify write permissions on `.mdbackups/`
+    - Look for errors in console thread
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Regular Backups" icon="clock-rotate-left">
+    Create backups before major changes or updates
+  </Card>
+  <Card title="Clean Up Old Files" icon="trash">
+    Periodically delete old logs and unused files
+  </Card>
+  <Card title="Use Terminal for Bulk" icon="terminal">
+    Terminal is faster for operations on many files
+  </Card>
+  <Card title="Test Restores" icon="vial">
+    Occasionally test backup restoration to ensure they work
+  </Card>
+</CardGroup>
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Backup System" icon="database" href="/features/backup-system">
+    Detailed backup management guide
+  </Card>
+  <Card title="Discord Panel" icon="grid" href="/features/discord-panel">
+    Master the panel interface
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/advanced">
+    Configure Flask and backup settings
+  </Card>
+  <Card title="Process Control" icon="power-off" href="/features/process-control">
+    Manage server lifecycle
+  </Card>
+</CardGroup>

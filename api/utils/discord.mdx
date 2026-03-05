@@ -1,0 +1,390 @@
+---
+title: Discord Utilities
+description: Helper functions for Discord integration
+icon: discord
+---
+
+## Overview
+
+The `discord_utils` module provides utilities for working with Discord threads, channels, permissions, and user interactions.
+
+## Permission Checking
+
+### isAdmin(member)
+
+Checks if a Discord member has administrator permissions.
+
+<ParamField path="member" type="discord.Member" required>
+  Discord member to check
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  True if member has administrator permissions, False otherwise
+</ResponseField>
+
+```python
+import discord
+from mcdis_rcon.utils.discord_utils import isAdmin
+
+# In an addon or plugin
+async def on_message(self, message: discord.Message):
+    if not isAdmin(message.author):
+        await message.channel.send("❌ You need admin permissions")
+        return
+    
+    # Admin-only command logic
+    await message.channel.send("✅ Admin command executed")
+```
+
+**Source code** from `/home/daytona/workspace/source/mcdis_rcon/utils/discord_utils.py:3-4`:
+
+```python
+def isAdmin(member: discord.Member) -> bool:
+    return member.guild_permissions.administrator
+```
+
+## Thread Management
+
+### thread(name, channel, public)
+
+Finds or creates a Discord thread.
+
+<ParamField path="name" type="str" required>
+  Thread name to find or create
+</ParamField>
+
+<ParamField path="channel" type="discord.TextChannel" required>
+  Parent channel for the thread
+</ParamField>
+
+<ParamField path="public" type="bool" default="False">
+  Whether the thread should be public (visible to all)
+</ParamField>
+
+<ResponseField name="return" type="discord.Thread">
+  The found or newly created thread
+</ResponseField>
+
+```python
+import discord
+from mcdis_rcon.utils.discord_utils import thread
+
+# In a plugin
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+    
+    async def send_log(self, message: str):
+        # Get or create a thread
+        log_thread = await thread(
+            name="Plugin Logs",
+            channel=self.process.client.panel,
+            public=True
+        )
+        await log_thread.send(message)
+```
+
+**How it works:**
+1. Unarchives all archived threads in the channel
+2. Searches for an existing thread with the given name
+3. Returns existing thread if found
+4. Creates a new thread if not found
+
+**Source code** from `/home/daytona/workspace/source/mcdis_rcon/utils/discord_utils.py:6-23`:
+
+```python
+async def thread(name: str, channel: discord.TextChannel, *, public: bool = False) -> discord.Thread:
+    async for thread in channel.archived_threads():
+        await thread.edit(archived = False)
+    
+    thread = next(filter(lambda x: x.name == name, channel.threads), None)
+
+    if thread: 
+        return thread
+    
+    if not public:
+        thread = await channel.create_thread(name = name.strip())
+        return thread
+    else:
+        message = await channel.send('_')
+        thread = await channel.create_thread(name = name.strip(), message = message)
+        await message.delete()
+        return thread
+```
+
+<Info>
+This function is used extensively by McDis-RCON to manage console threads for each process.
+</Info>
+
+## Confirmation Dialogs
+
+### confirmation_request(description, on_confirmation, on_reject, interaction, channel, ephemeral)
+
+Creates an interactive confirmation dialog with ✔ and ✖ buttons.
+
+<ParamField path="description" type="str" required>
+  Message to display in the confirmation embed
+</ParamField>
+
+<ParamField path="on_confirmation" type="Callable">
+  Function to call when ✔ is clicked
+</ParamField>
+
+<ParamField path="on_reject" type="Callable">
+  Function to call when ✖ is clicked
+</ParamField>
+
+<ParamField path="interaction" type="discord.Interaction">
+  Interaction to respond to (for slash commands)
+</ParamField>
+
+<ParamField path="channel" type="discord.TextChannel">
+  Channel to send the confirmation to
+</ParamField>
+
+<ParamField path="ephemeral" type="bool" default="True">
+  Whether the message should be ephemeral (only visible to user)
+</ParamField>
+
+```python
+import discord
+from mcdis_rcon.utils.discord_utils import confirmation_request
+
+class mdaddon:
+    def __init__(self, client):
+        self.client = client
+    
+    async def on_message(self, message: discord.Message):
+        if message.content == "!delete-all":
+            async def confirm(interaction):
+                await interaction.response.edit_message(
+                    content="Deleting all data...",
+                    embed=None,
+                    view=None
+                )
+                # Perform deletion
+                await interaction.followup.send("✅ All data deleted")
+            
+            async def reject(interaction):
+                await interaction.response.edit_message(
+                    content="❌ Deletion cancelled",
+                    embed=None,
+                    view=None
+                )
+            
+            await confirmation_request(
+                description="⚠️ Are you sure you want to delete all data?",
+                on_confirmation=confirm,
+                on_reject=reject,
+                channel=message.channel,
+                ephemeral=False
+            )
+```
+
+**Source code** from `/home/daytona/workspace/source/mcdis_rcon/utils/discord_utils.py:25-69`:
+
+```python
+async def confirmation_request(
+    description: str, *,
+    on_confirmation: Callable = None,
+    on_reject: Callable = None, 
+    interaction: discord.Interaction = None,
+    channel: discord.TextChannel = None,
+    ephemeral: bool = True
+):
+    class confirmation_views(discord.ui.View):
+        def __init__(self):
+            super().__init__(timeout = None)
+
+        @discord.ui.button(label = '✔', style = discord.ButtonStyle.gray)
+        async def proceed_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+            if not on_confirmation: 
+                await interaction.response.edit_message(delete_after = 0)
+                return
+            if inspect.iscoroutinefunction(on_confirmation):
+                await on_confirmation(interaction)
+            else:
+                on_confirmation(interaction)
+        
+        @discord.ui.button(label = '✖', style = discord.ButtonStyle.red)
+        async def reject_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+            if not on_reject:
+                await interaction.response.edit_message(delete_after = 0)
+                return
+            if inspect.iscoroutinefunction(on_confirmation):
+                await on_reject(interaction)
+            else:
+                on_reject(interaction)
+```
+
+## Usage Examples
+
+### Admin-Only Command
+
+```python
+import discord
+from mcdis_rcon.utils.discord_utils import isAdmin
+
+class mdaddon:
+    def __init__(self, client):
+        self.client = client
+    
+    async def on_message(self, message: discord.Message):
+        if message.content == "!restart-all":
+            # Check permissions
+            if not isAdmin(message.author):
+                await message.channel.send(
+                    "❌ You must be an administrator to use this command"
+                )
+                return
+            
+            # Execute admin command
+            for process in self.client.processes:
+                if process.is_running():
+                    await process.restart()
+            
+            await message.channel.send("✅ All processes restarted")
+```
+
+### Logging to Custom Thread
+
+```python
+import discord
+import asyncio
+from mcdis_rcon.utils.discord_utils import thread
+
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+        self.event_count = 0
+    
+    def listener_events(self, log: str):
+        if "joined the game" in log:
+            self.event_count += 1
+            asyncio.create_task(self.log_event(log))
+    
+    async def log_event(self, log: str):
+        # Create/get custom thread
+        event_thread = await thread(
+            name=f"Events - {self.process.name}",
+            channel=self.process.client.panel,
+            public=True
+        )
+        
+        await event_thread.send(
+            f"Event #{self.event_count}: {log}"
+        )
+```
+
+### Dangerous Operation Confirmation
+
+```python
+import discord
+from mcdis_rcon.utils.discord_utils import confirmation_request, isAdmin
+
+class mdaddon:
+    def __init__(self, client):
+        self.client = client
+    
+    async def on_message(self, message: discord.Message):
+        if message.content == "!wipe-server":
+            # Check admin
+            if not isAdmin(message.author):
+                await message.channel.send("❌ Admin only")
+                return
+            
+            async def confirmed(interaction):
+                await interaction.response.edit_message(
+                    content="🛠️ Wiping server...",
+                    embed=None,
+                    view=None
+                )
+                # Perform wipe
+                # ...
+                await interaction.followup.send("✅ Server wiped")
+            
+            async def rejected(interaction):
+                await interaction.response.edit_message(
+                    content="❌ Wipe cancelled",
+                    embed=None,
+                    view=None
+                )
+            
+            await confirmation_request(
+                description="⚠️ **WARNING:** This will permanently delete all server data!\nAre you sure?",
+                on_confirmation=confirmed,
+                on_reject=rejected,
+                channel=message.channel,
+                ephemeral=True
+            )
+```
+
+### Multi-Thread Organization
+
+```python
+import discord
+import asyncio
+from mcdis_rcon.utils.discord_utils import thread
+
+class mdaddon:
+    def __init__(self, client):
+        self.client = client
+    
+    async def on_ready(self):
+        # Organize logs into categorized threads
+        await self.setup_threads()
+    
+    async def setup_threads(self):
+        # Create organizational threads
+        self.info_thread = await thread(
+            name="📄 Information",
+            channel=self.client.panel,
+            public=True
+        )
+        
+        self.warn_thread = await thread(
+            name="⚠️ Warnings",
+            channel=self.client.panel,
+            public=True
+        )
+        
+        self.error_thread = await thread(
+            name="🔴 Errors",
+            channel=self.client.panel,
+            public=True
+        )
+        
+        await self.info_thread.send("Information logging started")
+```
+
+## Best Practices
+
+<Tip>
+Use `isAdmin()` to protect sensitive commands and operations.
+</Tip>
+
+<Tip>
+Always unarchive threads before trying to send messages to them.
+</Tip>
+
+<Warning>
+Confirmation dialogs with `ephemeral=False` are visible to all users. Use `ephemeral=True` for sensitive operations.
+</Warning>
+
+<Tip>
+The `thread()` function handles both finding existing threads and creating new ones, making it safe to call repeatedly.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="File Utilities" href="/api/utils/files" icon="file">
+    File and path utilities
+  </Card>
+  <Card title="Minecraft Utilities" href="/api/utils/minecraft" icon="cube">
+    Minecraft-specific functions
+  </Card>
+  <Card title="Discord.py Views" href="https://discordpy.readthedocs.io/en/stable/interactions/api.html#views" icon="book">
+    Learn about Discord UI components
+  </Card>
+</CardGroup>

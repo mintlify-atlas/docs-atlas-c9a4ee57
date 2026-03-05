@@ -1,0 +1,460 @@
+---
+title: Console Relay
+description: Real-time Minecraft server console streaming to Discord
+---
+
+McDis-RCON streams your Minecraft server console output in real-time to Discord threads, allowing you to monitor server activity, debug issues, and interact with your server from anywhere.
+
+## How Console Relay Works
+
+When a process starts, McDis-RCON:
+
+1. Creates a dedicated Discord thread named `Console <process_name>`
+2. Captures stdout and stderr from the process
+3. Filters logs based on configured blacklist
+4. Formats and batches logs for Discord
+5. Sends logs to the thread as code blocks
+
+<img src="https://i.imgur.com/lE4GRIV.png" alt="Console Threads" />
+
+## Console Thread Structure
+
+Each configured process gets its own console thread:
+
+```
+Your Discord Panel Channel
+├── Panel Message (with buttons)
+├── 🧵 Console server1
+├── 🧵 Console server2
+├── 🧵 Console velocity_network
+├── 🧵 Error Reports
+└── 🧵 Console Flask
+```
+
+<Note>
+  Console threads are created as public threads when McDis-RCON initializes, allowing all channel members to view and interact with them.
+</Note>
+
+## Console Output Format
+
+Logs are displayed as Markdown code blocks for readability:
+
+```md
+[12:34:56] [Server thread/INFO]: Starting minecraft server version 1.20.1
+[12:34:57] [Server thread/INFO]: Loading properties
+[12:34:58] [Server thread/INFO]: Default game type: SURVIVAL
+[12:35:02] [Server thread/INFO]: Done (4.123s)! For help, type "help"
+```
+
+### Log Processing
+
+Before sending to Discord, logs undergo processing:
+
+```python:mcdis_rcon/classes/Process.py
+async def _listener_console(self):
+    try: 
+        while self.process.poll() is None or not self._console_log.empty():
+            if self._console_log.empty(): 
+                await asyncio.sleep(0.1)
+                continue
+
+            log = self._console_log.get()
+            for i in range(100): log : str = log.replace(f'[{i}m','')
+            if log.replace('\n','').strip() == '': continue
+            if not any([x in log for x in self.blacklist if x]): 
+                self._console_relay.put(log)
+            
+            asyncio.create_task(self._listener_events(log))
+    except:
+        await self.error_report(
+            title = 'listener_console()',
+            error = traceback.format_exc()
+        )
+```
+
+**Processing steps:**
+1. ANSI color codes are stripped (`[0m`, `[31m`, etc.)
+2. Empty lines are filtered out
+3. Blacklisted terms are checked
+4. Remaining logs are queued for relay
+5. Logs are sent to plugins for event processing
+
+## Batching and Rate Limiting
+
+To prevent Discord API rate limiting, logs are batched:
+
+```python:mcdis_rcon/classes/Process.py
+async def _relay_console(self):
+    while (self.process.poll() is None or not self._console_relay.empty()) and not self._stop_relay:
+        try:
+            logs = '\n'.join([self._console_relay.get() for _ in range(10) 
+                             if not self._console_relay.empty()])
+
+            if logs.replace('\n','').strip() != '':
+                logs = logs.replace('_','⎽').replace('*',' ').replace('`','’').strip()
+                await remote_console.send(f'```md\n{truncate(logs, 1990)}```')
+
+            if self._console_relay.qsize() < 10: 
+                await asyncio.sleep(0.5)
+```
+
+**Batching behavior:**
+- Up to 10 logs are combined into a single message
+- If queue has < 10 logs, wait 0.5 seconds before sending
+- If queue has ≥ 10 logs, send immediately
+- Each message is truncated to 1990 characters (Discord limit: 2000)
+
+<Info>
+  This batching mechanism ensures efficient Discord API usage while maintaining near-real-time output during high-traffic periods.
+</Info>
+
+## Queue Overflow Protection
+
+If console output exceeds processing capacity, McDis protects against memory issues:
+
+```python:mcdis_rcon/classes/Process.py
+elif self._max_logs_in_queue < self._console_relay.qsize(): 
+    self._console_relay = queue.Queue()
+    log = self.log_format(
+        f'McDis was {self._max_logs_in_queue} logs behind; omitting relaying these logs...'
+    )
+    await remote_console.send(f'```md\n{log}\n```')
+```
+
+<Warning>
+  If the relay queue exceeds 1000 logs, it's cleared to prevent memory issues. This can happen during server startup with verbose logging or when Discord API is slow.
+</Warning>
+
+**When overflow occurs:**
+- Queue is completely cleared
+- Warning message is sent to console thread
+- Log count of omitted messages is displayed
+- Normal relay resumes
+
+## Log Filtering (Blacklist)
+
+Filter out unwanted log messages using the blacklist configuration:
+
+```yaml
+Processes:
+  Servers:
+    my_server:
+      start_cmd: java -Xms4G -Xmx8G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist:
+        - 'Can\'t keep up'
+        - 'Debug'
+        - 'moved too quickly'
+        - 'UUID of player'
+```
+
+Any log containing a blacklisted term will be **silently dropped** from Discord output.
+
+<Tip>
+  Use blacklist to filter out:
+  - Spam warnings ("Can't keep up")
+  - Debug messages from plugins
+  - Join/leave messages (if you have many players)
+  - Verbose plugin output
+  - Performance warnings you're already aware of
+</Tip>
+
+**Important notes:**
+- Blacklist checks are case-sensitive
+- Partial matches work ("Debug" matches "[Debug] Something")
+- Blacklisted logs are still sent to plugins
+- Empty strings in blacklist are ignored
+
+## Console Thread Commands
+
+Send commands directly in console threads without any prefix:
+
+### Process Control Commands
+
+```bash
+start      # Start the server
+stop       # Stop the server
+restart    # Restart the server
+kill       # Force kill the server
+mdreload   # Reload plugins for this server
+```
+
+### Server Commands
+
+Any other text is sent directly to the server:
+
+```bash
+list                          # Show online players
+say Hello everyone!           # Broadcast message
+tp Steve 0 64 0              # Teleport player
+gamemode creative Alex       # Change gamemode
+whitelist add Bob            # Modify whitelist
+```
+
+<Info>
+  Commands are written directly to the process stdin, exactly as if you typed them in the server console locally.
+</Info>
+
+## Special Console Features
+
+### Process Initialization
+
+When a server starts, you'll see:
+
+```md
+[Initializing Process...]
+```
+
+Followed by plugin loading messages:
+
+```md
+[McDis] [12:34:56] [MainThread/INFO]: McDis Plugin System is starting up
+[McDis] [12:34:56] [MainThread/INFO]: Importing mdplugins...
+[McDis] [12:34:56] [MainThread/INFO]: Plugin imported:: backup_manager.py
+[McDis] [12:34:56] [MainThread/INFO]: Plugin imported:: player_tracker.py
+[McDis] [12:34:56] [MainThread/INFO]: Initializing process...
+```
+
+### Process Shutdown
+
+When a server stops:
+
+```md
+[Process Stopped]
+```
+
+### Error References
+
+If an error occurs in a plugin or process:
+
+```md
+[McDis] [12:45:32] [MainThread/INFO]: Error report created. my_server: execute()
+https://discord.com/channels/.../...
+```
+
+The URL links to the detailed error report in the Error Reports thread.
+
+### Plugin Reload
+
+When reloading plugins with `mdreload`:
+
+```md
+[McDis] [13:05:12] [MainThread/INFO]: Reloading McDis Plugin System...
+[McDis] [13:05:12] [MainThread/INFO]: McDis Plugin System is starting up
+[McDis] [13:05:12] [MainThread/INFO]: Importing mdplugins...
+[McDis] [13:05:13] [MainThread/INFO]: Plugin imported:: custom_plugin.py
+```
+
+## Thread Reconnection
+
+If Discord connection is lost, McDis automatically reconnects:
+
+```python:mcdis_rcon/classes/Process.py
+except (aiohttp.ClientError, discord.HTTPException):
+    try:
+        remote_console = await thread(f'Console {self.name}', self.client.panel)
+    except Exception:
+        await asyncio.sleep(1)
+        continue
+```
+
+<Note>
+  Console relay is resilient to network issues. If Discord API is temporarily unavailable, McDis will retry fetching the thread and continue streaming once connection is restored.
+</Note>
+
+## Console Thread Lifecycle
+
+<Steps>
+  <Step title="Thread Creation">
+    When McDis-RCON starts, console threads are created for all configured processes, even if they're not running.
+  </Step>
+  
+  <Step title="Process Start">
+    When process starts:
+    - "[Initializing Process...]" is sent
+    - Plugin loading messages appear
+    - Server console output begins streaming
+  </Step>
+  
+  <Step title="Active Streaming">
+    While running:
+    - Real-time log output
+    - Command execution
+    - Error reporting
+  </Step>
+  
+  <Step title="Process Stop">
+    When process stops:
+    - Remaining queued logs are sent
+    - "[Process Stopped]" is sent
+    - Thread remains open for commands
+  </Step>
+  
+  <Step title="Thread Persistence">
+    Threads persist even after process stops, allowing you to review logs and restart the process.
+  </Step>
+</Steps>
+
+## Character Escaping
+
+Certain characters are escaped for Discord markdown compatibility:
+
+```python
+logs = logs.replace('_','⎽').replace('*',' ').replace('`','’').strip()
+```
+
+- `_` (underscore) → `⎽` (prevents italic formatting)
+- `*` (asterisk) → ` ` (space) (prevents bold formatting)
+- `` ` `` (backtick) → `’` (prevents code block breaking)
+
+<Info>
+  This escaping ensures that server logs display correctly in Discord without breaking markdown rendering.
+</Info>
+
+## Integration with Plugins
+
+Every console log is sent to plugins for processing:
+
+```python:mcdis_rcon/classes/Process.py
+async def _listener_events(self, log: str):
+    await self.call_plugins('listener_events', (log, ))
+```
+
+Plugins can implement `listener_events` to react to specific log patterns:
+
+```python
+class mdplugin:
+    def __init__(self, client):
+        self.client = client
+
+    def listener_events(self, log: str):
+        if "joined the game" in log:
+            player_name = log.split(" ")[1]
+            print(f"Player {player_name} connected!")
+```
+
+See [Plugins & Addons](/guides/plugins-overview) for more details.
+
+## Performance Considerations
+
+### Memory Usage
+
+- Console logs are stored in two queues: `_console_log` and `_console_relay`
+- Queue size is monitored to prevent memory exhaustion
+- Overflow protection kicks in at 1000 queued logs
+
+### CPU Usage
+
+- Console reading happens in a separate thread to avoid blocking
+- Async relay ensures Discord API calls don't block log processing
+- ANSI code stripping is optimized with simple string replacement
+
+### Discord API Efficiency
+
+- Batching reduces API calls by ~10x
+- Dynamic sleep times balance latency and rate limits
+- Thread reconnection prevents permanent relay failure
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="No console output appearing">
+    **Possible causes:**
+    - Server not started
+    - All logs are blacklisted
+    - Discord thread deleted
+    - Discord API issues
+    
+    **Solution:**
+    - Verify server is running
+    - Check blacklist configuration
+    - Restart McDis to recreate threads
+    - Check Discord API status
+  </Accordion>
+  
+  <Accordion title="Console output is delayed">
+    **Possible causes:**
+    - Discord API rate limiting
+    - High server log volume
+    - Network latency
+    
+    **Solution:**
+    - This is normal during high-traffic periods
+    - Batching introduces up to 0.5s delay intentionally
+    - Consider adding more items to blacklist
+  </Accordion>
+  
+  <Accordion title="Some logs are missing">
+    **Possible causes:**
+    - Queue overflow (>1000 logs)
+    - Blacklist filtering
+    - ANSI code interference
+    
+    **Solution:**
+    - Look for overflow warning in console thread
+    - Review blacklist configuration
+    - Check for unusual ANSI codes in server output
+  </Accordion>
+  
+  <Accordion title="Commands sent in thread don't work">
+    **Possible causes:**
+    - Server not running
+    - Wrong console thread
+    - Typo in command
+    
+    **Solution:**
+    - Verify process is running
+    - Ensure you're in correct console thread
+    - Try command in actual server console to verify
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use Blacklists Wisely" icon="filter">
+    Filter out spam but keep important warnings and errors visible.
+  </Card>
+  <Card title="Monitor Queue Overflow" icon="gauge-high">
+    If you see overflow warnings, reduce log verbosity or add to blacklist.
+  </Card>
+  <Card title="Keep Threads Clean" icon="broom">
+    Archive or delete old messages periodically to improve thread performance.
+  </Card>
+  <Card title="Test Commands First" icon="vial">
+    Test complex server commands in console thread before automating them.
+  </Card>
+</CardGroup>
+
+## Advanced: Custom Log Formatting
+
+For advanced users, you can modify log formatting by creating a custom plugin:
+
+```python
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+    
+    def listener_events(self, log: str):
+        # Custom log processing
+        if "IMPORTANT" in log:
+            # Send alert to different channel
+            pass
+```
+
+## Related Features
+
+<CardGroup cols={2}>
+  <Card title="Process Control" icon="power-off" href="/features/process-control">
+    Learn how to start and stop servers
+  </Card>
+  <Card title="Plugins & Addons" icon="puzzle-piece" href="/guides/plugins-overview">
+    Create event-driven automation
+  </Card>
+  <Card title="Configuration" icon="gear" href="/configuration/process-setup">
+    Configure blacklist and process settings
+  </Card>
+  <Card title="Discord Panel" icon="grid" href="/features/discord-panel">
+    Navigate the Discord interface
+  </Card>
+</CardGroup>

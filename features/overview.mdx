@@ -1,0 +1,292 @@
+---
+title: Features Overview
+description: Comprehensive overview of all McDis-RCON features
+---
+
+McDis-RCON provides a complete set of tools for managing Minecraft servers through Discord. Here's everything you can do.
+
+## Core Features
+
+<CardGroup cols={2}>
+  <Card title="Process Control" icon="power-off" href="/features/process-control">
+    Start, stop, restart, and kill servers with commands or buttons
+  </Card>
+  <Card title="Console Relay" icon="terminal" href="/features/console-relay">
+    Real-time console streaming to Discord threads
+  </Card>
+  <Card title="File Manager" icon="folder" href="/features/file-manager">
+    Browse, edit, upload, and download server files
+  </Card>
+  <Card title="Backup System" icon="database" href="/features/backup-system">
+    Automated backup creation and restoration
+  </Card>
+  <Card title="Discord Panel" icon="grid" href="/features/discord-panel">
+    Interactive control panel with buttons and dropdowns
+  </Card>
+  <Card title="Plugin System" icon="puzzle-piece" href="/guides/plugins-overview">
+    Extend functionality with plugins and addons
+  </Card>
+</CardGroup>
+
+## Feature Categories
+
+### Server Management
+
+<AccordionGroup>
+  <Accordion title="Multi-Server Support">
+    Manage multiple Minecraft servers and proxy networks simultaneously from a single Discord panel. Each server gets its own console thread and can be controlled independently or as a group.
+  </Accordion>
+  
+  <Accordion title="Process Monitoring">
+    View real-time status of all processes, including RAM usage, disk usage, and process state. Monitor which Java processes are running in your McDis directory.
+  </Accordion>
+  
+  <Accordion title="Command Execution">
+    Execute any Minecraft server command directly from Discord. Commands can be sent through the panel, console threads, or terminal interface.
+  </Accordion>
+  
+  <Accordion title="Graceful Shutdowns">
+    McDis-RCON handles server shutdowns gracefully using configured stop commands. If processes don't close within 60 seconds, they're automatically terminated.
+  </Accordion>
+</AccordionGroup>
+
+### Discord Integration
+
+<AccordionGroup>
+  <Accordion title="Real-Time Console Streaming">
+    Server console output is streamed to Discord threads in real-time, formatted as code blocks for easy reading. Large console outputs are automatically batched to prevent Discord rate limiting.
+  </Accordion>
+  
+  <Accordion title="Interactive Panel">
+    A persistent control panel message provides buttons for common actions, status displays, and quick navigation between features.
+  </Accordion>
+  
+  <Accordion title="Error Reporting">
+    Errors and exceptions are automatically caught and reported to a dedicated Error Reports thread with full stack traces and context.
+  </Accordion>
+  
+  <Accordion title="Custom Banner">
+    Personalize your panel by placing a `banner.png` (515×131px recommended) in your McDis directory.
+  </Accordion>
+</AccordionGroup>
+
+### File Operations
+
+<AccordionGroup>
+  <Accordion title="File Browser">
+    Navigate through your server directories using an intuitive dropdown interface. View files and folders, navigate between directories, and access specific paths.
+  </Accordion>
+  
+  <Accordion title="Text Editor">
+    Edit text files directly in Discord. Files under 4000 characters can be edited using Discord modals. Preview longer files with up to 1024 characters displayed.
+  </Accordion>
+  
+  <Accordion title="File Upload/Download">
+    Upload files to any directory by dragging them into the Discord panel channel. Download files up to 5MB directly through Discord. Larger files can be downloaded via Flask server with temporary links.
+  </Accordion>
+  
+  <Accordion title="File Management Terminal">
+    An integrated terminal allows advanced operations like copying, moving, renaming, creating folders, deleting files, and compressing directories.
+  </Accordion>
+</AccordionGroup>
+
+### Automation & Extensibility
+
+<AccordionGroup>
+  <Accordion title="Plugins (mdplugins)">
+    Process-specific extensions that run when a server is active. Can listen to Discord events and console logs, enabling event-driven automation.
+  </Accordion>
+  
+  <Accordion title="Addons (mdaddons)">
+    Global extensions that run as long as McDis-RCON is active. Can add new Discord commands, respond to events, and integrate with external services.
+  </Accordion>
+  
+  <Accordion title="Predefined Commands">
+    Store frequently used command sequences as YAML files. Execute complex operations with a single button click in Discord.
+  </Accordion>
+  
+  <Accordion title="Hot Reloading">
+    Reload plugins and addons without restarting McDis-RCON using `mdreload` and `adreload` commands.
+  </Accordion>
+</AccordionGroup>
+
+## Advanced Features
+
+### Flask File Server
+
+<Info>
+  An optional built-in Flask server allows downloading files larger than Discord's 5MB limit.
+</Info>
+
+Features:
+- Configurable single-use or multi-use download links
+- Temporary or persistent link options
+- Download tracking and logging in Console Flask thread
+- Configurable IP and port
+
+### Backup Management
+
+<Info>
+  Automated backup system with configurable retention policies.
+</Info>
+
+Features:
+- Create full server backups as ZIP archives
+- Restore from any backup version
+- Automatic old backup deletion based on configured limit (1-5 backups)
+- Backup creation requires server to be stopped (prevents corruption)
+
+### File Uploader
+
+<Info>
+  Dedicated file upload mode that captures all attachments sent to the panel channel.
+</Info>
+
+Features:
+- Toggle upload mode on/off
+- Set target directory for uploads
+- Choose whether to overwrite existing files
+- Upload progress tracking
+
+### Process Manager
+
+<Info>
+  View and manage all Java processes running in your McDis directory.
+</Info>
+
+Features:
+- List all active processes with details
+- Force kill specific processes
+- Identify rogue or stuck processes
+
+## Launcher Compatibility
+
+McDis-RCON works with any Java-based Minecraft launcher:
+
+<CardGroup cols={3}>
+  <Card title="Server Software" icon="server">
+    - Vanilla
+    - Paper
+    - Spigot
+    - Fabric
+    - Forge
+    - Purpur
+  </Card>
+  <Card title="Proxy Software" icon="network-wired">
+    - Velocity
+    - Waterfall
+    - Bungeecord
+  </Card>
+  <Card title="Special Cases" icon="wrench">
+    - MCDReforged (compatible)
+    - Any Java process
+  </Card>
+</CardGroup>
+
+<Note>
+  When using MCDReforged, ensure `advanced_console` is set to `False` in your MCDR configuration to prevent console formatting conflicts.
+</Note>
+
+## Multi-Language Support
+
+McDis-RCON includes built-in internationalization:
+
+- **English** (en) - Default
+- **Spanish** (es) - Full translation
+
+Set your preferred language in `md_config.yml`:
+
+```yaml
+Language: en  # or 'es' for Spanish
+```
+
+## Command Interface
+
+McDis-RCON provides three interfaces for control:
+
+### Discord Panel Commands
+
+Commands prefixed with `!!` in the panel channel:
+
+```
+!!start <server>     # Start a specific server
+!!stop <server>      # Stop a specific server
+!!restart <server>   # Restart a specific server
+!!kill <server>      # Force kill a server
+!!start-all          # Start all servers
+!!stop-all           # Stop all servers
+!!mdreload <server>  # Reload server plugins
+!!adreload           # Reload global addons
+```
+
+### Console Thread Commands
+
+Commands in individual console threads (no prefix needed):
+
+```
+start                # Start this server
+stop                 # Stop this server
+restart              # Restart this server
+kill                 # Force kill this server
+mdreload             # Reload this server's plugins
+<any command>        # Execute in server console
+```
+
+### Terminal Commands
+
+Commands in the McDis-RCON terminal:
+
+```
+start <server>       # Start a server
+stop <server>        # Stop a server
+restart <server>     # Restart a server
+kill <server>        # Force kill a server
+start-all            # Start all servers
+stop-all             # Stop all servers
+mdreload <server>    # Reload server plugins
+adreload             # Reload addons
+status               # Display panel status
+exit                 # Gracefully shut down
+```
+
+## Security Considerations
+
+<Warning>
+  **Important Security Notes:**
+  
+  - The Discord bot should have administrator permissions for full functionality
+  - All users with access to the panel channel can control servers
+  - File Manager allows access to all files in the McDis directory
+  - Flask server (if enabled) should be properly firewalled
+  - Keep your bot token secure and never share it
+</Warning>
+
+## Performance Notes
+
+- Console output is batched to prevent Discord API rate limiting
+- Large console backlogs (>1000 logs) are automatically truncated
+- File Manager has a 25-file limit per view for performance
+- Backups are created as compressed ZIP archives to save space
+
+## Explore Individual Features
+
+<CardGroup cols={2}>
+  <Card title="Process Control" icon="power-off" href="/features/process-control">
+    Learn about starting, stopping, and managing servers
+  </Card>
+  <Card title="Console Relay" icon="terminal" href="/features/console-relay">
+    Understand how console streaming works
+  </Card>
+  <Card title="File Manager" icon="folder" href="/features/file-manager">
+    Master file operations through Discord
+  </Card>
+  <Card title="Backup System" icon="database" href="/features/backup-system">
+    Set up and use the backup system
+  </Card>
+  <Card title="Discord Panel" icon="grid" href="/features/discord-panel">
+    Navigate the Discord interface
+  </Card>
+  <Card title="Plugins & Addons" icon="puzzle-piece" href="/guides/plugins-overview">
+    Extend McDis-RCON functionality
+  </Card>
+</CardGroup>

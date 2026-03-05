@@ -1,0 +1,356 @@
+---
+title: Network
+description: Class for managing Minecraft proxy network processes
+icon: network-wired
+---
+
+## Overview
+
+The `Network` class extends `Process` and represents a Minecraft proxy server (Velocity, Waterfall, BungeeCord, etc.).
+
+## Class Definition
+
+```python
+from mcdis_rcon.classes import Network
+from mcdis_rcon.classes import Process
+from mcdis_rcon.classes import McDisClient
+
+class Network(Process):
+    def __init__(self, name: str, client: McDisClient, config: dict):
+        super().__init__(name, client, config)
+```
+
+## Inheritance
+
+The `Network` class inherits all methods and attributes from the `Process` class:
+
+- Process lifecycle methods (start, stop, kill, restart)
+- Plugin management (load_plugins, call_plugins)
+- Console management (execute, send_to_console)
+- Backup operations (make_bkp, unpack_bkp)
+- Resource monitoring (ram_usage, disk_usage)
+
+See the [Process class documentation](/api/classes/process) for detailed information.
+
+## Configuration
+
+Networks are defined in `md_config.yml` under `Processes.Networks`:
+
+```yaml md_config.yml
+Processes:
+  Networks:
+    Velocity:
+      start_cmd: java -Xms512M -Xmx512M -jar velocity.jar
+      stop_cmd: end
+      blacklist:
+        - 'Listening on'
+        - 'Using limbo'
+    
+    Waterfall:
+      start_cmd: java -Xms512M -Xmx512M -jar waterfall.jar
+      stop_cmd: end
+      blacklist: []
+```
+
+<Info>
+Proxy servers typically use `end` instead of `stop` as their shutdown command.
+</Info>
+
+## Attributes
+
+All attributes are inherited from `Process`:
+
+<ParamField path="name" type="str">
+  Network name (e.g., "Velocity", "Waterfall")
+</ParamField>
+
+<ParamField path="path_files" type="str">
+  Network directory (e.g., `McDis/Velocity/`)
+</ParamField>
+
+<ParamField path="start_cmd" type="str">
+  Java command to start the proxy
+</ParamField>
+
+<ParamField path="stop_cmd" type="str">
+  Console command to stop the proxy (usually "end")
+</ParamField>
+
+<ParamField path="blacklist" type="list[str]">
+  Log patterns to exclude from Discord
+</ParamField>
+
+## Network Directory Structure
+
+```
+McDis/
+├── Velocity/               ← Network files directory
+│   ├── .mdplugins/         ← Network-specific plugins
+│   │   └── player_bridge.py
+│   ├── .mdcommands/        ← Predefined commands
+│   ├── velocity.jar        ← Proxy JAR file
+│   ├── velocity.toml       ← Velocity config
+│   ├── plugins/            ← Proxy plugins
+│   └── logs/
+└── .mdbackups/
+    └── Velocity/           ← Network backups
+        ├── Velocity 1.zip
+        └── Velocity 2.zip
+```
+
+## Usage Example
+
+### Accessing in Client
+
+```python
+# Get network instance
+for network in client.networks:
+    if network.name == "Velocity":
+        print(f"Network: {network.name}")
+        print(f"Running: {network.is_running()}")
+        print(f"RAM: {network.ram_usage()}")
+```
+
+### In a Plugin
+
+```python
+class mdplugin:
+    def __init__(self, network):
+        self.network = network  # This is a Network instance
+        
+    def listener_events(self, log: str):
+        if "has connected" in log:
+            # Player connected to proxy
+            player = self.extract_player_name(log)
+            self.network.execute(f"alert {player} Welcome to the network!")
+```
+
+### Network Commands
+
+From Discord console thread:
+
+```
+start           # Start the proxy
+stop            # Stop the proxy (sends stop_cmd)
+restart         # Restart the proxy
+kill            # Force-kill the proxy
+mdreload        # Reload mdplugins
+/alert Message  # Execute any proxy command
+```
+
+## Common Network Types
+
+### Velocity
+
+```yaml
+Processes:
+  Networks:
+    Velocity:
+      start_cmd: java -Xms512M -Xmx512M -XX:+UseG1GC -jar velocity.jar
+      stop_cmd: end
+      blacklist:
+        - 'Listening on'
+        - 'Done'
+```
+
+### Waterfall (BungeeCord fork)
+
+```yaml
+Processes:
+  Networks:
+    Waterfall:
+      start_cmd: java -Xms512M -Xmx512M -jar waterfall.jar
+      stop_cmd: end
+      blacklist:
+        - 'Enabled plugin'
+        - 'Listening on'
+```
+
+### BungeeCord
+
+```yaml
+Processes:
+  Networks:
+    BungeeCord:
+      start_cmd: java -Xms512M -Xmx512M -jar BungeeCord.jar
+      stop_cmd: end
+      blacklist: []
+```
+
+## Network-Specific Plugins
+
+Plugins in `.mdplugins/` only run when the network is active:
+
+```python connection_tracker.py
+from mcdis_rcon.classes import Network
+import asyncio
+
+class mdplugin:
+    def __init__(self, network: Network):
+        self.network = network
+        self.connections = 0
+    
+    def listener_events(self, log: str):
+        if "has connected" in log:
+            self.connections += 1
+            asyncio.create_task(
+                self.network.send_to_console(
+                    f"Total connections: {self.connections}"
+                )
+            )
+        
+        elif "has disconnected" in log:
+            self.connections -= 1
+```
+
+## Multi-Server Setup
+
+Networks work alongside servers:
+
+```yaml md_config.yml
+Processes:
+  Networks:
+    Velocity:
+      start_cmd: java -Xms512M -Xmx512M -jar velocity.jar
+      stop_cmd: end
+      blacklist: []
+  
+  Servers:
+    Lobby:
+      start_cmd: java -Xms2G -Xmx2G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: []
+    
+    Survival:
+      start_cmd: java -Xms4G -Xmx4G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: []
+    
+    Creative:
+      start_cmd: java -Xms2G -Xmx2G -jar paper.jar nogui
+      stop_cmd: stop
+      blacklist: []
+```
+
+<Tip>
+Start the network proxy before starting backend servers for proper connection routing.
+</Tip>
+
+## Cross-Network Communication
+
+Plugins can communicate between networks and servers:
+
+```python network_plugin.py
+import asyncio
+
+class mdplugin:
+    def __init__(self, network):
+        self.network = network
+        self.client = network.client
+    
+    def listener_events(self, log: str):
+        if "has connected" in log:
+            player = self.extract_player(log)
+            
+            # Notify all servers
+            for server in self.client.servers:
+                if server.is_running():
+                    server.execute(
+                        f"say {player} joined the network!"
+                    )
+```
+
+## Resource Monitoring
+
+```python
+# Get RAM usage
+ram = network.ram_usage()  # "512 MB"
+
+# Get disk usage
+disk = network.disk_usage()  # "150 MB"
+```
+
+## Backup Management
+
+```python
+# Create backup (network must be stopped)
+if not network.is_running():
+    network.make_bkp()
+
+# Restore from backup
+backup_name = "Velocity 1.zip"
+network.unpack_bkp(backup_name)
+```
+
+## Best Practices
+
+<Tip>
+Keep network proxies lightweight. They don't need as much RAM as game servers.
+</Tip>
+
+<Tip>
+Use the blacklist to filter verbose proxy logging for cleaner Discord consoles.
+</Tip>
+
+<Warning>
+Ensure backend servers are configured to accept proxy connections (velocity-secret, bungeecord: true, etc.).
+</Warning>
+
+<Info>
+Networks inherit all Process methods, so refer to the Process documentation for complete API details.
+</Info>
+
+## Velocity Configuration Example
+
+```toml velocity.toml
+[servers]
+lobby = "127.0.0.1:25565"
+survival = "127.0.0.1:25566"
+creative = "127.0.0.1:25567"
+
+try = [
+  "lobby"
+]
+
+[forced-hosts]
+"play.example.com" = [
+  "lobby"
+]
+```
+
+## Common Log Patterns
+
+### Velocity
+
+```
+[player] has connected
+[player] has disconnected
+Listening on /0.0.0.0:25577
+Done (X.XXs)!
+```
+
+### Waterfall/BungeeCord
+
+```
+[player] has connected
+[player] has disconnected
+Listening on /*:25577
+Enabled plugin [name] version [version]
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Process Class" href="/api/classes/process" icon="server">
+    View complete Process API
+  </Card>
+  <Card title="Server Class" href="/api/classes/server" icon="cube">
+    Learn about game servers
+  </Card>
+  <Card title="Creating Plugins" href="/guides/creating-plugins" icon="code">
+    Build network-specific plugins
+  </Card>
+  <Card title="Multiple Servers" href="/guides/multiple-servers" icon="cubes">
+    Configure multi-server networks
+  </Card>
+</CardGroup>

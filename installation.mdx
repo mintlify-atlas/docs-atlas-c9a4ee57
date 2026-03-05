@@ -1,0 +1,266 @@
+---
+title: Installation
+description: Complete installation instructions for McDis-RCON
+---
+
+McDis-RCON is distributed as a Python package and can be easily installed using pip.
+
+## System Requirements
+
+<CardGroup cols={2}>
+  <Card title="Python Version" icon="python">
+    Python 3.8 or higher required
+  </Card>
+  <Card title="Operating System" icon="server">
+    Linux (recommended) or Windows
+  </Card>
+  <Card title="Discord Bot" icon="discord">
+    Discord bot token with admin permissions
+  </Card>
+  <Card title="Network" icon="wifi">
+    Internet connection for Discord API
+  </Card>
+</CardGroup>
+
+<Note>
+  While McDis-RCON can run on Windows, it is primarily designed for Linux systems. Some features like the File Manager may not work as expected on Windows if you don't own the files in the directory.
+</Note>
+
+## Installation Methods
+
+### Using pip (Recommended)
+
+The simplest way to install McDis-RCON is via pip:
+
+```bash
+pip install mcdis-rcon
+```
+
+<Tip>
+  On some systems, you may need to use `pip3` instead of `pip`.
+</Tip>
+
+### System-Specific Installation
+
+<CodeGroup>
+```bash Linux/macOS
+# Using pip3 (recommended for Linux)
+pip3 install mcdis-rcon
+
+# Or using python3 module
+python3 -m pip install mcdis-rcon
+```
+
+```bash Windows
+# Using pip
+pip install mcdis-rcon
+
+# Or using python module
+python -m pip install mcdis-rcon
+```
+
+```bash Virtual Environment
+# Create a virtual environment
+python3 -m venv mcdis-env
+
+# Activate the environment
+source mcdis-env/bin/activate  # Linux/macOS
+mcdis-env\Scripts\activate     # Windows
+
+# Install McDis-RCON
+pip install mcdis-rcon
+```
+</CodeGroup>
+
+## Verifying Installation
+
+After installation, verify that McDis-RCON is correctly installed:
+
+```bash
+mcdis --help
+```
+
+You should see the help output with available commands:
+
+```
+usage: mcdis [-h] {init,run,po} ...
+
+McDis RCON CLI
+
+positional arguments:
+  {init,run,po}
+    init          Initialize the project
+    run           Run the main function
+    po            Update the .po file
+```
+
+## Dependencies
+
+McDis-RCON automatically installs the following dependencies:
+
+- **discord.py** - Discord API wrapper
+- **psutil** - Process and system utilities
+- **flask** - Web server for file downloads
+- **requests** - HTTP library
+- **nbtlib** - NBT file handling
+- **ruamel.yaml** - YAML configuration parser
+- **polib** - Localization support
+
+<Warning>
+  The `ruamel.yaml` module occasionally fails to install properly. See the troubleshooting section below if you encounter issues.
+</Warning>
+
+## Troubleshooting Installation
+
+### ruamel.yaml Installation Issues
+
+If you encounter errors related to `ruamel.yaml`, try reinstalling it with the `--force` flag:
+
+<CodeGroup>
+```bash Linux/macOS
+python3 -m pip install --force ruamel.yaml
+```
+
+```bash Windows
+python -m pip install --force ruamel.yaml
+```
+</CodeGroup>
+
+This usually resolves the issue in most cases.
+
+### Permission Denied Errors
+
+If you get permission errors during installation:
+
+<CodeGroup>
+```bash Linux/macOS - User Install
+pip3 install --user mcdis-rcon
+```
+
+```bash Linux/macOS - System Install
+sudo pip3 install mcdis-rcon
+```
+
+```bash Windows - Administrator
+# Run Command Prompt or PowerShell as Administrator, then:
+pip install mcdis-rcon
+```
+</CodeGroup>
+
+### Python Version Issues
+
+Check your Python version:
+
+```bash
+python --version
+# or
+python3 --version
+```
+
+If you're running Python < 3.8, you'll need to upgrade:
+
+<CodeGroup>
+```bash Ubuntu/Debian
+sudo apt update
+sudo apt install python3.10
+```
+
+```bash CentOS/RHEL
+sudo yum install python3.10
+```
+
+```bash Windows
+# Download from https://www.python.org/downloads/
+# Or use winget:
+winget install Python.Python.3.10
+```
+</CodeGroup>
+
+### Virtual Environment Issues
+
+If you're using a virtual environment and commands aren't found:
+
+```bash
+# Make sure the virtual environment is activated
+which python  # Should point to your venv
+which mcdis   # Should point to your venv
+
+# If not, reactivate:
+source mcdis-env/bin/activate  # Linux/macOS
+mcdis-env\Scripts\activate     # Windows
+```
+
+## Upgrading McDis-RCON
+
+To upgrade to the latest version:
+
+```bash
+pip install --upgrade mcdis-rcon
+```
+
+Or with pip3:
+
+```bash
+pip3 install --upgrade mcdis-rcon
+```
+
+<Info>
+  Check the [PyPI page](https://pypi.org/project/mcdis-rcon/) for the latest version information.
+</Info>
+
+## Uninstalling
+
+To remove McDis-RCON from your system:
+
+```bash
+pip uninstall mcdis-rcon
+```
+
+<Note>
+  Uninstalling McDis-RCON will not remove your configuration files (`md_config.yml`) or server files. You'll need to delete those manually if desired.
+</Note>
+
+## Next Steps
+
+After successful installation:
+
+<Steps>
+  <Step title="Create Discord Bot">
+    If you haven't already, [create a Discord bot](https://discordpy.readthedocs.io/en/stable/discord.html) and get your bot token.
+  </Step>
+  
+  <Step title="Follow Quickstart">
+    Head to the [Quickstart Guide](/quickstart) to set up your first server.
+  </Step>
+  
+  <Step title="Configure McDis">
+    Learn about [Configuration](/configuration/overview) options to customize your setup.
+  </Step>
+</Steps>
+
+## Version Information
+
+<Info>
+  **Current Version**: 0.4.30a
+  
+  **Python Compatibility**: 3.8, 3.10, 3.12+
+  
+  **License**: View on [GitHub](https://github.com/mjpr-3435/McDis-RCON/blob/master/LICENSE)
+</Info>
+
+## Additional Resources
+
+<CardGroup cols={2}>
+  <Card title="PyPI Package" icon="package" href="https://pypi.org/project/mcdis-rcon">
+    View package details and version history
+  </Card>
+  <Card title="GitHub Repository" icon="github" href="https://github.com/mjpr-3435/McDis-RCON">
+    Source code and issue tracker
+  </Card>
+  <Card title="Discord Community" icon="discord" href="https://discord.gg/xB9N38HBJY">
+    Get help from the community
+  </Card>
+  <Card title="Example Implementations" icon="code" href="https://github.com/mjpr-3435/AeternumBot">
+    See real-world configurations
+  </Card>
+</CardGroup>

@@ -1,0 +1,181 @@
+---
+title: mcdis run
+description: Start the McDis-RCON application
+icon: play
+---
+
+## Overview
+
+The `mcdis run` command starts the McDis-RCON Discord bot and begins managing your Minecraft servers and networks.
+
+## Usage
+
+```bash
+mcdis run
+```
+
+## Prerequisites
+
+<Steps>
+  <Step title="Configuration file">
+    Ensure `md_config.yml` exists in your current directory. Run `mcdis init` if needed.
+  </Step>
+  
+  <Step title="Bot token">
+    Add your Discord bot token to the `Bot Token` field in `md_config.yml`.
+  </Step>
+  
+  <Step title="Panel channel">
+    Create a Discord channel and add its ID to the `Panel ID` field.
+  </Step>
+</Steps>
+
+## What Happens on Startup
+
+When you run `mcdis run`, the application:
+
+1. **Loads configuration** from `md_config.yml`
+2. **Validates settings** (token, panel ID, language, processes)
+3. **Connects to Discord** using the provided bot token
+4. **Initializes processes** (servers and networks)
+5. **Loads addons** from `.mdaddons/` directory
+6. **Loads Discord event behaviors** from the package
+7. **Starts Flask server** (if enabled in config)
+8. **Creates panel interface** in the specified Discord channel
+9. **Starts console listener** for terminal commands
+
+## Startup Logs
+
+Example output:
+
+```
+Your configuration has been loaded successfully.
+Logged in as McDis Bot#1234!
+   • Creating objects
+     -> server 1
+     -> server 2
+     -> network 1
+   • Importing addons:
+     -> Imported example_addon.py
+   • Loaded Discord events
+   • Loaded server panel
+Loading Complete
+
+Commands: start, stop, restart, kill, mdreload, adreload, status, exit
+>>
+```
+
+## Configuration Validation
+
+The command validates your configuration:
+
+<ParamField path="Bot Token" type="string" required>
+  Discord bot token for authentication
+</ParamField>
+
+<ParamField path="Panel ID" type="integer" required>
+  Discord channel ID for the control panel
+</ParamField>
+
+<ParamField path="Language" type="string" default="en">
+  Interface language. Valid: `en`, `es`
+</ParamField>
+
+<ParamField path="Backups" type="integer" default="3">
+  Number of backups to retain (1-5)
+</ParamField>
+
+<ParamField path="Flask.Allow" type="boolean" default="false">
+  Enable Flask web interface
+</ParamField>
+
+<ParamField path="Processes" type="object" required>
+  Server and network definitions
+</ParamField>
+
+## Error Handling
+
+If configuration is invalid, you'll see specific error messages:
+
+```
+The 'Bot Token' variable must be a string.
+```
+
+```
+The 'Panel ID' variable must be an integer.
+```
+
+```
+The 'Language' variable must be one of the following: en, es.
+```
+
+## Source Code
+
+The `run` command is imported from `main.py`:
+
+```python
+# From cli.py:25-27
+from ..main import run
+mcdis_parser = subparsers.add_parser('run', help='Run the main function')
+mcdis_parser.set_defaults(func=run)
+```
+
+## Interactive Console
+
+After startup, you can use these commands:
+
+```bash
+# Start all processes
+start-all
+
+# Start specific process
+start <name>
+
+# Stop all processes
+stop-all
+
+# Restart process
+restart <name>
+
+# Reload plugins for a process
+mdreload <name>
+
+# Reload global addons
+adreload
+
+# Show status panel
+status
+
+# Exit McDis-RCON
+exit
+```
+
+## Graceful Shutdown
+
+Press `Ctrl+C` or use the `exit` command:
+
+1. Stops all running processes
+2. Waits up to 60 seconds for graceful shutdown
+3. Force-kills processes if they don't stop
+4. Unloads all plugins and addons
+5. Exits the application
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Console Commands" href="/api/cli/console-commands" icon="terminal">
+    Learn available console commands
+  </Card>
+  <Card title="Process Manager" href="/guides/process-manager" icon="server">
+    Manage your servers and networks
+  </Card>
+</CardGroup>
+
+<Warning>
+Make sure your bot has proper permissions in the panel channel:
+- Read Messages
+- Send Messages
+- Manage Messages
+- Create Threads
+- Send Messages in Threads
+</Warning>

@@ -1,0 +1,472 @@
+---
+title: File Utilities
+description: File handling and path manipulation utilities
+icon: file
+---
+
+## Overview
+
+The `files` module provides utilities for working with files, paths, YAML configuration, NBT data, and archive operations.
+
+## Configuration Files
+
+### read_yml(file_path)
+
+Reads and parses a YAML configuration file.
+
+<ParamField path="file_path" type="str" required>
+  Path to the YAML file
+</ParamField>
+
+<ResponseField name="return" type="dict">
+  Parsed YAML data as a Python dictionary
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.files import read_yml
+
+config = read_yml('md_config.yml')
+print(config['Bot Token'])
+print(config['Processes']['Servers'])
+```
+
+**Source code** from `/home/daytona/workspace/source/mcdis_rcon/utils/files.py:43-49`:
+
+```python
+def read_yml(file_path: str) -> dict:
+    with open(file_path, 'r') as file:
+        yaml = ruamel.yaml.YAML()
+        yaml.indent(mapping = 2, sequence = 4, offset=2)
+        yaml.preserve_quotes = True
+        return yaml.load(file)
+```
+
+### read_properties(file_path)
+
+Reads Minecraft-style `.properties` files.
+
+<ParamField path="file_path" type="str" required>
+  Path to the properties file
+</ParamField>
+
+<ResponseField name="return" type="dict">
+  Dictionary of key-value pairs from the properties file
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.files import read_properties
+
+props = read_properties('server.properties')
+print(f"Server port: {props['server-port']}")
+print(f"Max players: {props['max-players']}")
+```
+
+**Source code** from `/home/daytona/workspace/source/mcdis_rcon/utils/files.py:3-12`:
+
+```python
+def read_properties(file_path: str):
+    if not os.path.exists(file_path): 
+        return {}
+
+    properties = {}
+    with open(file_path, 'r') as f:
+        for line in f:
+            if line.strip() and not line.startswith('#'):
+                key, value = line.strip().split('=', 1)
+                properties[key] = value
+    return properties
+```
+
+## Text File Operations
+
+### read_file(file_path)
+
+Reads a text file with UTF-8 encoding.
+
+<ParamField path="file_path" type="str" required>
+  Path to the file
+</ParamField>
+
+<ResponseField name="return" type="str">
+  File contents as a string
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.files import read_file
+
+content = read_file('README.md')
+print(content)
+```
+
+### write_in_file(file_path, content)
+
+Writes content to a file, adding newlines after each line.
+
+<ParamField path="file_path" type="str" required>
+  Path to the file
+</ParamField>
+
+<ParamField path="content" type="str" required>
+  Content to write (can contain \n)
+</ParamField>
+
+```python
+from mcdis_rcon.utils.files import write_in_file
+
+content = "Line 1\nLine 2\nLine 3"
+write_in_file('output.txt', content)
+```
+
+## JSON Operations
+
+### dict_to_json(path_file, dictionary)
+
+Writes a dictionary to a JSON file with pretty formatting.
+
+<ParamField path="path_file" type="str" required>
+  Path to save the JSON file
+</ParamField>
+
+<ParamField path="dictionary" type="dict" required>
+  Dictionary to serialize
+</ParamField>
+
+```python
+from mcdis_rcon.utils.files import dict_to_json
+
+data = {
+    "player": "Steve",
+    "score": 1000,
+    "items": ["diamond_sword", "golden_apple"]
+}
+
+dict_to_json('player_data.json', data)
+```
+
+### json_to_dict(path_file)
+
+Reads a JSON file and returns a dictionary.
+
+<ParamField path="path_file" type="str" required>
+  Path to the JSON file
+</ParamField>
+
+<ResponseField name="return" type="dict">
+  Parsed JSON data
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.files import json_to_dict
+
+data = json_to_dict('player_data.json')
+print(f"Player: {data['player']}")
+print(f"Score: {data['score']}")
+```
+
+## NBT Data (Minecraft)
+
+### read_dat_files(file_path)
+
+Reads Minecraft NBT data files (.dat).
+
+<ParamField path="file_path" type="str" required>
+  Path to the .dat file
+</ParamField>
+
+<ResponseField name="return" type="nbtlib.File">
+  NBT file object
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.files import read_dat_files
+
+player_data = read_dat_files('world/playerdata/uuid.dat')
+print(player_data)
+```
+
+### dat_to_dict(nbt)
+
+Converts NBT data to a Python dictionary.
+
+<ParamField path="nbt" type="nbtlib object" required>
+  NBT data structure
+</ParamField>
+
+<ResponseField name="return" type="dict">
+  Python dictionary representation
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.files import read_dat_files, dat_to_dict
+import json
+
+nbt_data = read_dat_files('level.dat')
+data_dict = dat_to_dict(nbt_data)
+
+print(json.dumps(data_dict, indent=2))
+```
+
+### show_dat_files(file_path, nbt)
+
+Prints NBT data in JSON format.
+
+<ParamField path="file_path" type="str">
+  Path to .dat file (optional if nbt provided)
+</ParamField>
+
+<ParamField path="nbt" type="nbtlib object">
+  NBT data to display (optional if file_path provided)
+</ParamField>
+
+```python
+from mcdis_rcon.utils.files import show_dat_files
+
+show_dat_files(file_path='level.dat')
+```
+
+## Path Utilities
+
+### is_valid_path_name(folder_name)
+
+Validates that a path name contains only allowed characters.
+
+<ParamField path="folder_name" type="str" required>
+  Path or folder name to validate
+</ParamField>
+
+<ResponseField name="return" type="bool">
+  True if valid, False otherwise
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.files import is_valid_path_name
+
+print(is_valid_path_name("server-1"))     # True
+print(is_valid_path_name("My Server"))    # True  
+print(is_valid_path_name("server@#$"))    # False
+```
+
+**Allowed characters:** Letters (A-Z, a-z), numbers (0-9), periods (.), hyphens (-), underscores (_), and spaces.
+
+### mcdis_path(path)
+
+Converts a system path to a McDis path format.
+
+<ParamField path="path" type="str" required>
+  System path
+</ParamField>
+
+<ResponseField name="return" type="str">
+  Path prefixed with "McDis"
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.files import mcdis_path
+
+print(mcdis_path("."))                  # "McDis"
+print(mcdis_path("server/world"))       # "McDis/server/world"
+```
+
+### un_mcdis_path(path)
+
+Converts a McDis path to a system path.
+
+<ParamField path="path" type="str" required>
+  McDis-formatted path
+</ParamField>
+
+<ResponseField name="return" type="str">
+  System path without "McDis" prefix
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.files import un_mcdis_path
+
+print(un_mcdis_path("McDis"))                    # "."
+print(un_mcdis_path("McDis/server/world"))       # "server/world"
+```
+
+### get_path_size(path, string)
+
+Calculates the total size of a directory or file.
+
+<ParamField path="path" type="str" required>
+  Path to measure
+</ParamField>
+
+<ParamField path="string" type="bool" default="True">
+  Return human-readable string (True) or bytes (False)
+</ParamField>
+
+<ResponseField name="return" type="str | int">
+  Size as formatted string or integer bytes
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.files import get_path_size
+
+size_str = get_path_size('world', string=True)
+print(f"World size: {size_str}")  # "1.2 GB"
+
+size_bytes = get_path_size('world', string=False)
+print(f"World size: {size_bytes} bytes")  # 1234567890 bytes
+```
+
+### elements_on(path, include_files, include_dirs, recursive)
+
+Counts files and/or directories in a path.
+
+<ParamField path="path" type="str" required>
+  Path to count elements in
+</ParamField>
+
+<ParamField path="include_files" type="bool" default="True">
+  Count files
+</ParamField>
+
+<ParamField path="include_dirs" type="bool" default="True">
+  Count directories
+</ParamField>
+
+<ParamField path="recursive" type="bool" default="True">
+  Recursively count subdirectories
+</ParamField>
+
+<ResponseField name="return" type="int">
+  Total count of elements
+</ResponseField>
+
+```python
+from mcdis_rcon.utils.files import elements_on
+
+total = elements_on('world')
+print(f"Total files and folders: {total}")
+
+files_only = elements_on('world', include_dirs=False)
+print(f"Files: {files_only}")
+
+dirs_only = elements_on('world', include_files=False)
+print(f"Directories: {dirs_only}")
+```
+
+## Archive Operations
+
+### make_zip(source, destination, counter)
+
+Creates a ZIP archive from a directory.
+
+<ParamField path="source" type="str" required>
+  Source directory to compress
+</ParamField>
+
+<ParamField path="destination" type="str" required>
+  Destination ZIP file path
+</ParamField>
+
+<ParamField path="counter" type="list" optional>
+  Optional [current, total] list for progress tracking
+</ParamField>
+
+```python
+from mcdis_rcon.utils.files import make_zip
+
+# Simple zip
+make_zip('world', 'world_backup.zip')
+
+# With progress tracking
+counter = [0, 0]
+make_zip('world', 'world_backup.zip', counter)
+print(f"Compressed {counter[0]} of {counter[1]} items")
+```
+
+### unpack_zip(source, destination, counter)
+
+Extracts a ZIP archive.
+
+<ParamField path="source" type="str" required>
+  Source ZIP file
+</ParamField>
+
+<ParamField path="destination" type="str" required>
+  Destination directory
+</ParamField>
+
+<ParamField path="counter" type="list" optional>
+  Optional [current, total] list for progress tracking
+</ParamField>
+
+```python
+from mcdis_rcon.utils.files import unpack_zip
+
+# Simple extraction
+unpack_zip('backup.zip', 'restored_world')
+
+# With progress tracking
+counter = [0, 0]
+unpack_zip('backup.zip', 'restored_world', counter)
+print(f"Extracted {counter[0]} of {counter[1]} files")
+```
+
+## Usage in Plugins
+
+```python
+import os
+from mcdis_rcon.utils.files import (
+    read_properties, 
+    dict_to_json, 
+    json_to_dict,
+    get_path_size
+)
+
+class mdplugin:
+    def __init__(self, process):
+        self.process = process
+        self.config_file = os.path.join(
+            process.path_files, 
+            'plugin_config.json'
+        )
+        self.config = self.load_config()
+    
+    def load_config(self):
+        if os.path.exists(self.config_file):
+            return json_to_dict(self.config_file)
+        return {"enabled": True, "data": {}}
+    
+    def save_config(self):
+        dict_to_json(self.config_file, self.config)
+    
+    def listener_events(self, log: str):
+        if "Server started" in log:
+            # Read server properties
+            props_path = os.path.join(
+                self.process.path_files, 
+                'server.properties'
+            )
+            props = read_properties(props_path)
+            
+            # Get world size
+            world_path = os.path.join(
+                self.process.path_files,
+                props.get('level-name', 'world')
+            )
+            size = get_path_size(world_path)
+            
+            print(f"World size: {size}")
+    
+    def unload(self):
+        self.save_config()
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Discord Utilities" href="/api/utils/discord" icon="discord">
+    Discord helper functions
+  </Card>
+  <Card title="Minecraft Utilities" href="/api/utils/minecraft" icon="cube">
+    Minecraft-specific utilities
+  </Card>
+  <Card title="File Manager" href="/guides/file-manager" icon="folder">
+    Using the file manager interface
+  </Card>
+</CardGroup>

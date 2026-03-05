@@ -1,0 +1,371 @@
+---
+title: Plugins Overview
+description: Understand the mdplugins system and how it extends McDis-RCON functionality
+icon: plug
+---
+
+McDis-RCON's plugin system (mdplugins) allows you to extend functionality for individual server processes. Plugins run while their associated process is active and can respond to both Discord events and server console output.
+
+## What Are MDPlugins?
+
+MDPlugins are Python scripts that extend McDis-RCON on a **per-process basis**:
+
+- **Process-specific**: Each plugin belongs to one process (server/network)
+- **Lifecycle-bound**: Loaded when process starts, unloaded when it stops
+- **Event-driven**: React to Discord events and console logs
+- **Reloadable**: Can be reloaded without restarting the server
+
+<Info>
+Plugins are different from addons. See [Addons Overview](/guides/addons-overview) to understand the distinction.
+</Info>
+
+## Plugins vs Addons
+
+| Feature | MDPlugins | MDAddons |
+|---------|-----------|----------|
+| Scope | Single process | Global (all processes) |
+| Lifecycle | Process start/stop | McDis-RCON start/stop |
+| Location | `McDis/<process>/.mdplugins/` | `McDis/.mdaddons/` |
+| Console access | Yes (via `listener_events`) | No |
+| Discord events | Yes (with `listener_` prefix) | Yes (direct) |
+| Reload command | `!!mdreload <process>` | `!!adreload` |
+
+## Plugin Architecture
+
+### File Structure
+
+Plugins are stored in process-specific directories:
+
+```
+McDis/
+├── server 1/
+│   ├── .mdplugins/
+│   │   ├── player_tracker.py    ← Plugin for server 1
+│   │   ├── chat_logger.py       ← Plugin for server 1
+│   │   └── auto_restart.py      ← Plugin for server 1
+│   └── server.jar
+├── server 2/
+│   ├── .mdplugins/
+│   │   └── custom_events.py     ← Plugin for server 2
+│   └── server.jar
+└── network 1/
+    ├── .mdplugins/
+    │   └── proxy_monitor.py     ← Plugin for network 1
+    └── velocity.jar
+```
+
+### Plugin Class Structure
+
+Every plugin must define a `mdplugin` class:
+
+```python
+from mcdis_rcon.classes import McDisClient
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        # Initialization code here
+```
+
+The `client` parameter provides access to the McDis-RCON client and all its capabilities.
+
+## Plugin Capabilities
+
+### 1. Discord Event Listeners
+
+Plugins can react to any Discord event by prefixing method names with `listener_`:
+
+```python
+import discord
+from mcdis_rcon.classes import McDisClient
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    async def listener_on_message(self, message: discord.Message):
+        """React to Discord messages"""
+        if message.author.bot:
+            return
+        
+        if message.channel.id == self.client.panel.id:
+            await message.add_reaction('✅')
+```
+
+<Note>
+The `listener_` prefix is required for Discord events in plugins. This distinguishes plugin listeners from addon listeners.
+</Note>
+
+### 2. Console Log Monitoring
+
+Plugins can process every line output by the server console:
+
+```python
+from mcdis_rcon.classes import McDisClient
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    def listener_events(self, log: str):
+        """Process every console log line"""
+        if "joined the game" in log:
+            player_name = log.split(" ")[1]
+            print(f"Player {player_name} has joined.")
+```
+
+### 3. Server Command Execution
+
+Plugins can execute commands in the server console:
+
+```python
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    def listener_events(self, log: str):
+        if "Server started" in log:
+            # Execute a command when server starts
+            self.client.execute("say Server is now ready!")
+```
+
+### 4. Discord Message Sending
+
+Plugins can send messages to Discord:
+
+```python
+import discord
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+
+    async def listener_events(self, log: str):
+        if "WARNING" in log:
+            await self.client.send_to_console(f"⚠️ Warning detected: {log}")
+```
+
+## Plugin Lifecycle
+
+### Loading Process
+
+<Steps>
+  <Step title="Process starts">
+    When you execute `!!start <process>` or the process boots up
+  </Step>
+  
+  <Step title="Plugin discovery">
+    McDis-RCON scans `McDis/<process>/.mdplugins/` for `.py` files
+  </Step>
+  
+  <Step title="Plugin instantiation">
+    Each file with a `mdplugin` class is imported and instantiated
+    
+    ```python
+    plugin_instance = mod.mdplugin(self)  # 'self' is the Process object
+    ```
+  </Step>
+  
+  <Step title="Registration">
+    Plugins are registered in the process's plugin registry
+    
+    ```python
+    self.plugins["player_tracker"] = plugin_instance
+    ```
+  </Step>
+  
+  <Step title="Ready">
+    Plugins are now active and listening for events
+  </Step>
+</Steps>
+
+### Unloading Process
+
+<Steps>
+  <Step title="Unload trigger">
+    Process stops, or `!!mdreload <process>` is executed
+  </Step>
+  
+  <Step title="Cleanup hook">
+    If the plugin has an `unload()` method, it's called:
+    
+    ```python
+    class mdplugin:
+        def unload(self):
+            # Cleanup: close files, save data, etc.
+            pass
+    ```
+  </Step>
+  
+  <Step title="Deregistration">
+    Plugins are removed from the registry
+    
+    ```python
+    self.plugins = {}
+    ```
+  </Step>
+</Steps>
+
+## Available Discord Events
+
+Plugins can listen to all Discord.py events:
+
+```python
+# Message events
+async def listener_on_message(self, message):
+async def listener_on_message_edit(self, before, after):
+async def listener_on_message_delete(self, message):
+
+# Reaction events
+async def listener_on_reaction_add(self, reaction, user):
+async def listener_on_reaction_remove(self, reaction, user):
+
+# Member events
+async def listener_on_member_join(self, member):
+async def listener_on_member_remove(self, member):
+
+# And many more...
+```
+
+See [discord.py documentation](https://discordpy.readthedocs.io/en/stable/api.html#discord-api-events) for the complete list.
+
+## Client Object Reference
+
+The `client` object passed to plugins is a `Process` instance with these useful attributes:
+
+```python
+self.client.name                # Process name (e.g., "server 1")
+self.client.path_files          # Process folder path
+self.client.path_plugins        # .mdplugins folder path
+self.client.path_commands       # .mdcommands folder path
+self.client.client              # McDisClient object (Discord bot)
+self.client.client.panel        # Discord panel channel
+
+# Methods
+self.client.execute(command)              # Execute server command
+self.client.add_log(log)                  # Add log to console
+self.client.is_running()                  # Check if process is running
+await self.client.send_to_console(message) # Send message to Discord console
+```
+
+## Example: Simple Plugin
+
+Here's a complete example that reacts when players join:
+
+```python player_greeter.py
+from mcdis_rcon.classes import McDisClient
+
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.player_count = 0
+
+    def listener_events(self, log: str):
+        """Monitor console for player joins"""
+        if "joined the game" in log:
+            # Extract player name (assumes format: "Player <name> joined the game")
+            parts = log.split(" ")
+            if len(parts) >= 2:
+                player_name = parts[1]
+                self.player_count += 1
+                
+                # Send welcome command to server
+                self.client.execute(f"say Welcome {player_name}! You are player #{self.player_count}")
+
+    def unload(self):
+        """Called when plugin is unloaded"""
+        print(f"Player greeter unloaded. Total joins: {self.player_count}")
+```
+
+Place this file in `McDis/server 1/.mdplugins/player_greeter.py` and reload:
+
+```bash
+!!mdreload server 1
+```
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Player Tracking" icon="users">
+    Monitor player joins/leaves, track playtime, detect first-time players
+  </Card>
+  <Card title="Event Detection" icon="bell">
+    Detect server events (crashes, warnings, achievements) and notify Discord
+  </Card>
+  <Card title="Auto-moderation" icon="shield">
+    Parse chat logs and execute moderation commands based on patterns
+  </Card>
+  <Card title="Performance Monitoring" icon="chart-line">
+    Track TPS, memory warnings, and lag spikes from console output
+  </Card>
+  <Card title="Discord Integration" icon="message">
+    Bridge chat between Minecraft and Discord channels
+  </Card>
+  <Card title="Custom Commands" icon="terminal">
+    React to Discord messages and execute server commands
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+### Error Handling
+
+Always wrap risky code in try/except:
+
+```python
+def listener_events(self, log: str):
+    try:
+        # Your code here
+        pass
+    except Exception as e:
+        print(f"Error in plugin: {e}")
+```
+
+McDis-RCON will create error reports for unhandled exceptions, but explicit handling is better.
+
+### Resource Management
+
+Use the `unload()` method to clean up resources:
+
+```python
+class mdplugin:
+    def __init__(self, client: McDisClient):
+        self.client = client
+        self.data_file = open("player_data.txt", "a")
+
+    def unload(self):
+        self.data_file.close()  # Close file handles
+```
+
+### Async vs Sync
+
+- **Console events**: `listener_events` is synchronous (no `async`)
+- **Discord events**: All `listener_on_*` methods must be `async`
+
+```python
+# Correct
+def listener_events(self, log: str):           # Sync
+    pass
+
+async def listener_on_message(self, message):   # Async
+    pass
+
+# Wrong
+async def listener_events(self, log: str):      # Don't use async here
+    pass
+```
+
+<Warning>
+Making `listener_events` async will cause it to not be called properly.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Creating Plugins" href="/guides/creating-plugins" icon="code">
+    Learn how to write custom plugins with detailed examples
+  </Card>
+  <Card title="Addons Overview" href="/guides/addons-overview" icon="puzzle-piece">
+    Understand global addons for McDis-RCON-wide functionality
+  </Card>
+</CardGroup>

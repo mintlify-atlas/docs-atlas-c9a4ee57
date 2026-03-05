@@ -1,0 +1,306 @@
+---
+title: mdplugin Class
+description: Base class for creating process-specific plugins
+icon: plug
+---
+
+## Overview
+
+The `mdplugin` class is the foundation for creating custom plugins that extend McDis-RCON's functionality for individual processes (servers and networks).
+
+## Class Template
+
+```python
+from mcdis_rcon.classes import Process
+import discord
+import asyncio
+
+class mdplugin:
+    def __init__(self, process: Process):
+        """Called when plugin is loaded"""
+        self.process = process
+        # Initialize your variables here
+
+    def listener_events(self, log: str):
+        """Called for every console log line (synchronous)"""
+        pass
+
+    async def listener_on_message(self, message: discord.Message):
+        """Called for every Discord message"""
+        pass
+
+    def unload(self):
+        """Called when plugin is unloaded (optional)"""
+        pass
+```
+
+## Constructor
+
+### __init__(process)
+
+<ParamField path="process" type="Process" required>
+  The Process (Server or Network) instance that loaded this plugin
+</ParamField>
+
+```python
+class mdplugin:
+    def __init__(self, process: Process):
+        self.process = process
+        self.client = process.client  # Access McDisClient
+        self.player_count = 0
+        print(f"Plugin loaded for {process.name}")
+```
+
+**Available attributes from process:**
+
+- `self.process.name` - Process name
+- `self.process.client` - McDisClient instance
+- `self.process.execute(cmd)` - Execute server command
+- `self.process.send_to_console(msg)` - Send to Discord
+- `self.process.is_running()` - Check if running
+- `self.process.path_files` - Process directory
+
+## Event Listeners
+
+### listener_events(log)
+
+Called for every line of console output from the process.
+
+<ParamField path="log" type="str" required>
+  A single line from the process console output
+</ParamField>
+
+```python
+def listener_events(self, log: str):
+    """Process console logs"""
+    if "joined the game" in log:
+        player = self.extract_player_name(log)
+        print(f"{player} joined!")
+        
+        # Execute server command
+        self.process.execute(f"say Welcome {player}!")
+        
+        # Send to Discord (requires async)
+        asyncio.create_task(
+            self.process.send_to_console(f"Player {player} joined")
+        )
+```
+
+<Info>
+`listener_events` is **synchronous**. Use `asyncio.create_task()` to call async functions.
+</Info>
+
+### listener_on_message(message)
+
+Called for every Discord message when the process is running.
+
+<ParamField path="message" type="discord.Message" required>
+  Discord message object
+</ParamField>
+
+```python
+async def listener_on_message(self, message: discord.Message):
+    """Handle Discord messages"""
+    if message.author.bot:
+        return
+    
+    # Custom command
+    if message.content == "!players":
+        await message.channel.send(
+            f"Players online: {self.player_count}"
+        )
+```
+
+<Info>
+`listener_on_message` must be **async**.
+</Info>
+
+### Additional Discord Event Listeners
+
+Plugins can listen to any Discord.py event by prefixing with `listener_`:
+
+```python
+async def listener_on_reaction_add(self, reaction, user):
+    """Called when a reaction is added"""
+    if user.bot:
+        return
+    
+    if reaction.emoji == "✅":
+        await self.process.send_to_console(
+            f"{user.name} reacted with checkmark"
+        )
+
+async def listener_on_member_join(self, member):
+    """Called when a member joins the Discord"""
+    await self.process.send_to_console(
+        f"{member.name} joined the Discord server"
+    )
+```
+
+## Cleanup
+
+### unload()
+
+Called when the plugin is unloaded (process stops or `mdreload`).
+
+```python
+def unload(self):
+    """Cleanup resources"""
+    # Save data
+    self.save_stats()
+    
+    # Cancel tasks
+    if hasattr(self, 'background_task'):
+        self.background_task.cancel()
+    
+    print(f"Plugin unloaded for {self.process.name}")
+```
+
+<Warning>
+Always implement `unload()` if your plugin creates background tasks, opens files, or maintains state.
+</Warning>
+
+## Complete Example
+
+```python player_tracker.py
+from mcdis_rcon.classes import Process
+import discord
+import asyncio
+import json
+import os
+
+class mdplugin:
+    def __init__(self, process: Process):
+        self.process = process
+        self.stats_file = os.path.join(
+            process.path_files, 
+            "player_stats.json"
+        )
+        self.stats = self.load_stats()
+    
+    def load_stats(self):
+        """Load stats from file"""
+        if os.path.exists(self.stats_file):
+            with open(self.stats_file, 'r') as f:
+                return json.load(f)
+        return {"total_joins": 0, "players": {}}
+    
+    def save_stats(self):
+        """Save stats to file"""
+        with open(self.stats_file, 'w') as f:
+            json.dump(self.stats, f, indent=2)
+    
+    def listener_events(self, log: str):
+        """Track player joins"""
+        if "joined the game" in log:
+            # Extract player name
+            parts = log.split(" ")
+            player = parts[3] if len(parts) > 3 else "Unknown"
+            
+            # Update stats
+            self.stats["total_joins"] += 1
+            if player not in self.stats["players"]:
+                self.stats["players"][player] = 0
+            self.stats["players"][player] += 1
+            
+            # Save immediately
+            self.save_stats()
+            
+            # Welcome message
+            join_count = self.stats["players"][player]
+            self.process.execute(
+                f"say Welcome {player}! Join #{join_count}"
+            )
+            
+            # Notify Discord
+            asyncio.create_task(
+                self.process.send_to_console(
+                    f"{player} joined (#{join_count})"
+                )
+            )
+    
+    async def listener_on_message(self, message: discord.Message):
+        """Handle Discord commands"""
+        if message.author.bot:
+            return
+        
+        if message.content == "!stats":
+            total = self.stats["total_joins"]
+            unique = len(self.stats["players"])
+            
+            await message.channel.send(
+                f"**Stats:**\n"
+                f"Total joins: {total}\n"
+                f"Unique players: {unique}"
+            )
+    
+    def unload(self):
+        """Save stats on unload"""
+        self.save_stats()
+        print(f"Player tracker unloaded. Total joins: {self.stats['total_joins']}")
+```
+
+## Plugin Lifecycle
+
+```
+1. Process starts
+   ↓
+2. Plugin __init__() called
+   ↓
+3. listener_events() called for each console line
+   listener_on_message() called for each Discord message
+   ↓
+4. Process stops OR mdreload command
+   ↓
+5. Plugin unload() called
+```
+
+## Accessing Other Processes
+
+```python
+class mdplugin:
+    def __init__(self, process: Process):
+        self.process = process
+        self.client = process.client
+    
+    def listener_events(self, log: str):
+        if "Server started" in log:
+            # Notify all other processes
+            for other in self.client.processes:
+                if other.name != self.process.name and other.is_running():
+                    other.execute(
+                        f"say {self.process.name} is now online!"
+                    )
+```
+
+## Best Practices
+
+<Tip>
+Use `asyncio.create_task()` in `listener_events` to call async functions without blocking.
+</Tip>
+
+<Tip>
+Always check `message.author.bot` in Discord listeners to avoid bot loops.
+</Tip>
+
+<Warning>
+Don't perform heavy computations in `listener_events` - it's called for every console line.
+</Warning>
+
+<Tip>
+Implement `unload()` to save data and clean up resources when the plugin is reloaded.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Plugin Events" href="/api/plugins/events" icon="bolt">
+    Complete event reference
+  </Card>
+  <Card title="Creating Plugins" href="/guides/creating-plugins" icon="code">
+    Step-by-step guide with examples
+  </Card>
+  <Card title="Process Class" href="/api/classes/process" icon="server">
+    Process API reference
+  </Card>
+</CardGroup>
